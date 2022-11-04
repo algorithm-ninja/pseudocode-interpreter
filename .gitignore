@@ -1,0 +1,11 @@
+prova.html
+/target
+/pkg
+*/pandoc_in.md
+*/pandoc_sol.md
+*/standalone.html
+*/statement.html
+*.pdf
+*.png
+*/*.svg
+*.jpg

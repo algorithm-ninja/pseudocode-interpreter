@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>interpreter</title>
+    <style>
+body, textarea, input {
+  background-color: #002b36;
+  color: #839496;
+}
+
+form {
+  width: 80%;
+  padding-left: 10%;
+  padding-right: 10%;
+}
+
+textarea {
+  width: 100%;
+}
+
+form > div {
+  width: 100%;
+  text-align: center;
+  padding-top: 10px;
+}
+
+#eval {
+  padding-top: 20px;
+  width: 50%;
+  padding-left: 25%;
+  padding-right: 25%;
+  display: inline-block;
+  font-family: monospace;
+}
+
+#eval .block {
+  border-left: 1px solid #586e75;
+  padding-left: 1.2em;
+  margin-left: 0.3em;
+}
+
+#eval .keyword { font-weight: bold; }
+#eval .var0 { color: #268bd2; font-weight: bold; }
+#eval .var1 { color: #d30102; font-weight: bold; }
+#eval .var2 { color: #859900; font-weight: bold; }
+#eval .var3 { color: #b58900; font-weight: bold; }
+#eval .var4 { color: #2aa198; font-weight: bold; }
+#eval .value { color: #2aa198; font-style: italic; }
+#eval .type { font-style: italic; }
+#eval .active_expr { text-decoration: underline; }
+#eval .active_stmt { background-color: #073642; }
+
+    </style>
+  </head>
+  <body>
+    <form action="#" id="inputarea">
+    <textarea id="source" cols=100 rows=25></textarea>
+    </textarea>
+    <div>
+    <label for="fn">Function:</label> <input id=fn type=text value="f" />
+    </div>
+    <div>
+    <label for="args">Arguments (comma-separated ints):</label>
+    <input id=args type=text value="30" />
+    </div>
+    <div>
+    <input type=submit id=run value=Run />
+    </div>
+    </form>
+    <div id=eval></div>
+    <script type="module">
+      document.getElementById("source").value = `function f(a: integer) -> integer
+  variable b: integer
+  variable c: integer
+  b <- 42
+  c <- 42
+  while a > 0 do
+    if a >= b then
+      a <- a - b
+    else
+      c <- a
+      a <- b
+      b <- c
+    end if
+    if a < 15 then
+      variable b: integer
+      b <- 1 + 34 * a
+    end if
+  end while
+  return a + b + c
+end function`
+      import init, { eval_from_js } from "./pkg/sc_int.js";
+      async function run() {
+        document.getElementById("run").disabled = true;
+        let code = document.getElementById("source").value;
+        let fn = document.getElementById("fn").value;
+        let args = document.getElementById("args").value.split(",").map((x) => BigInt(x.trim()));
+        for (const state of eval_from_js(code, fn, args)) {
+          document.getElementById("eval").innerHTML = state;
+          await new Promise(r => setTimeout(r, 500));
+        }
+        document.getElementById("run").disabled = false;
+      }
+      init().then(() => {
+        document.getElementById("run").onclick = run;
+      });
+    </script>
+  </body>
+</html>
+
+
