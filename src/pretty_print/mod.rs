@@ -104,7 +104,7 @@ impl<'a> AstDecorator for VarMappingDecorator<'a> {
         let id = self
             .known_vars
             .get(&ByAddress(actual_var))
-            .expect(&*format!("Unknown variable {}", var));
+            .unwrap_or_else(|| panic!("Unknown variable {}", var));
         DecorationType::InactiveVariable(*id)
     }
 }
@@ -267,7 +267,7 @@ where
             Type::String => "string".into(),
             Type::Integer => "integer".into(),
             Type::Float => "float".into(),
-            Type::Array(ty) => self.type_to_str(&**ty) + "[]",
+            Type::Array(ty) => self.type_to_str(ty) + "[]",
         }
     }
 
