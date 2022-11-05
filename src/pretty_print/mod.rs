@@ -69,6 +69,12 @@ impl NoopDecorator {
     }
 }
 
+impl Default for NoopDecorator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AstDecorator for NoopDecorator {}
 
 pub struct VarMappingDecorator<'a> {
@@ -279,7 +285,7 @@ where
         }
     }
 
-    fn format_array(&self, arr: &Vec<Expr>, dec: &D) -> String {
+    fn format_array(&self, arr: &[Expr], dec: &D) -> String {
         format!(
             "[{}]",
             arr.iter()
@@ -294,11 +300,11 @@ where
             "({})",
             match tuple {
                 Tuple::ExprTuple(ve) => ve
-                    .into_iter()
+                    .iter()
                     .map(|expr| self.format_expr(expr, dec))
                     .collect::<Vec<String>>(),
                 Tuple::DeclTuple(ve) => ve
-                    .into_iter()
+                    .iter()
                     .map(|decl| format!(
                         "{} {}",
                         self.apply_decoration(&DecorationType::Keyword, String::from("variable")),
@@ -318,7 +324,7 @@ where
             Some(expr) => format!(
                 " {} {}",
                 self.apply_decoration(&DecorationType::Arrow, self.fmt_assign()),
-                self.format_expr(&expr, dec)
+                self.format_expr(expr, dec)
             ),
         };
         format!("{ident}: {ty}{val}")
@@ -418,7 +424,7 @@ where
                             self.format_comment(comm1)
                         ),
                     ),
-                    self.format_block(&block, indent + 1, dec),
+                    self.format_block(block, indent + 1, dec),
                     self.fmt_line(
                         indent,
                         StatementState::Inactive,
@@ -465,13 +471,13 @@ where
                         self.format_comment(comm1)
                     ),
                 );
-                let block1 = self.format_block(&block1, indent + 1, dec);
-                let block2 = if block2.len() > 0 {
+                let block1 = self.format_block(block1, indent + 1, dec);
+                let block2 = if !block2.is_empty() {
                     self.fmt_line(
                         indent,
                         StatementState::Inactive,
                         format!("{} {}", keyword("else"), self.format_comment(comm2)),
-                    ) + &self.format_block(&block2, indent + 1, dec)
+                    ) + &self.format_block(block2, indent + 1, dec)
                 } else {
                     "".into()
                 };
@@ -520,7 +526,7 @@ where
         }
     }
 
-    fn format_block(&self, block: &Vec<Line>, indent: usize, dec: &D) -> String {
+    fn format_block(&self, block: &[Line], indent: usize, dec: &D) -> String {
         format!(
             "{}",
             block
@@ -579,16 +585,16 @@ where
             },
             match item {
                 Item::Func(function) => {
-                    self.format_fn(&function, indent, dec)
+                    self.format_fn(function, indent, dec)
                 }
                 Item::Line(line) => {
-                    self.format_line(&line, indent, dec)
+                    self.format_line(line, indent, dec)
                 }
             }
         )
     }
 
-    fn format_program(&self, items: &Vec<Item>, indent: usize, dec: &D) -> String {
+    fn format_program(&self, items: &[Item], indent: usize, dec: &D) -> String {
         let mut last_was_line = false;
         items
             .iter()
@@ -600,7 +606,7 @@ where
                         Item::Func(_) => true,
                     };
                 last_was_line = matches!(item, &Item::Line(_));
-                self.format_item(item, indent, needs_newline, &dec)
+                self.format_item(item, indent, needs_newline, dec)
             })
             .join("")
     }
@@ -611,6 +617,12 @@ pub struct ASCIIFormatter {}
 impl ASCIIFormatter {
     pub fn new() -> ASCIIFormatter {
         ASCIIFormatter {}
+    }
+}
+
+impl Default for ASCIIFormatter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

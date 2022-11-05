@@ -7,6 +7,7 @@ use crate::VariableMapping;
 use by_address::ByAddress;
 
 // TODO
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct TypeCheckErrors {
     error: String,
@@ -52,33 +53,31 @@ where
                 typecheck_expr(e, state)?
             }
         }
-        Expr::Tuple(tuple) => {
-            match tuple {
-                Tuple::ExprTuple(ve) => {
-                    for e in ve.iter() {
-                        typecheck_expr(e, state)?
-                    }
-                },
-                Tuple::DeclTuple(ve) => {
-                    for d in ve.iter() {
-                        typecheck_decl(d, state)?
-                    }
-                },
+        Expr::Tuple(tuple) => match tuple {
+            Tuple::ExprTuple(ve) => {
+                for e in ve.iter() {
+                    typecheck_expr(e, state)?
+                }
             }
-        }
+            Tuple::DeclTuple(ve) => {
+                for d in ve.iter() {
+                    typecheck_decl(d, state)?
+                }
+            }
+        },
         Expr::Parens(be) => {
-            typecheck_expr(&*be, state)?;
+            typecheck_expr(be, state)?;
         }
         Expr::Op(e1, _, e2) => {
-            typecheck_expr(&*e1, state)?;
-            typecheck_expr(&*e2, state)?;
+            typecheck_expr(e1, state)?;
+            typecheck_expr(e2, state)?;
         }
         Expr::Not(be) => {
-            typecheck_expr(&*be, state)?;
+            typecheck_expr(be, state)?;
         }
         Expr::ArrayIndex(e1, e2) => {
-            typecheck_expr(&*e1, state)?;
-            typecheck_expr(&*e2, state)?;
+            typecheck_expr(e1, state)?;
+            typecheck_expr(e2, state)?;
         }
         Expr::FunctionCall(_, args) => {
             for e in args.iter() {
@@ -103,7 +102,7 @@ where
         .expect("Decl stack cannot be empty")
         .insert(decl.ident.clone(), &decl.ident);
     if let Some(expr) = &decl.val {
-        typecheck_expr(&expr, state)?
+        typecheck_expr(expr, state)?
     }
     Ok(())
 }

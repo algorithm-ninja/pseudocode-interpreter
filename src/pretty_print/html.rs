@@ -21,6 +21,12 @@ impl HtmlFormatter {
     }
 }
 
+impl Default for HtmlFormatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D: AstDecorator> AstFormatter<D> for HtmlFormatter {
     fn apply_decoration(&self, dec: &DecorationType, data: String) -> String {
         match dec {

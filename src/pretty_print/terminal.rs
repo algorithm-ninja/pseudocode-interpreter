@@ -10,21 +10,27 @@ impl TerminalFormatter {
     }
 }
 
-const VAR_COLORS: &'static [&'static str] = &[
+impl Default for TerminalFormatter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+const VAR_COLORS: &[&str] = &[
     "\x1b[34m", "\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[35m", "\x1b[36m", "\x1b[37m",
 ];
-const BRIGHTBLUE: &'static str = "\x1b[94m";
-const BRIGHTGREEN: &'static str = "\x1b[92m";
-const RED: &'static str = "\x1b[31m";
-const BOLD: &'static str = "\x1b[1m";
-const THIN: &'static str = "\x1b[2m";
-const NORMAL_WEIGHT: &'static str = "\x1b[22m";
-const CURSIVE: &'static str = "\x1b[3m";
-const NO_CURSIVE: &'static str = "\x1b[23m";
-const UNDERLINE: &'static str = "\x1b[4m";
-const NO_UNDERLINE: &'static str = "\x1b[24m";
-const CLEAR_COLOR: &'static str = "\x1b[39m";
-//const CLEAR: &'static str = "\x1b[0m";
+const BRIGHTBLUE: &str = "\x1b[94m";
+const BRIGHTGREEN: &str = "\x1b[92m";
+const RED: &str = "\x1b[31m";
+const BOLD: &str = "\x1b[1m";
+const THIN: &str = "\x1b[2m";
+const NORMAL_WEIGHT: &str = "\x1b[22m";
+const CURSIVE: &str = "\x1b[3m";
+const NO_CURSIVE: &str = "\x1b[23m";
+const UNDERLINE: &str = "\x1b[4m";
+const NO_UNDERLINE: &str = "\x1b[24m";
+const CLEAR_COLOR: &str = "\x1b[39m";
+//const CLEAR: & str = "\x1b[0m";
 
 impl<D: AstDecorator> AstFormatter<D> for TerminalFormatter {
     fn apply_decoration(&self, dec: &DecorationType, data: String) -> String {
@@ -50,7 +56,7 @@ impl<D: AstDecorator> AstFormatter<D> for TerminalFormatter {
             DecorationType::Type => format!("{CURSIVE}{data}{NO_CURSIVE}"),
             DecorationType::Value => format!("{BRIGHTBLUE}{data}{CLEAR_COLOR}"),
             DecorationType::Operator => data,
-            DecorationType::Comment =>format!("{BRIGHTGREEN}{data}{CLEAR_COLOR}"),
+            DecorationType::Comment => format!("{BRIGHTGREEN}{data}{CLEAR_COLOR}"),
             DecorationType::Arrow => data,
             DecorationType::Alert => format!("{RED}{data}{CLEAR_COLOR}"),
             DecorationType::None => data,

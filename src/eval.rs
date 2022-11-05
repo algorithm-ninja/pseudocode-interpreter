@@ -7,6 +7,7 @@ use crate::{ExecutionEvent, Value, VariableMapping};
 use by_address::ByAddress;
 
 // TODO
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct ExecutionErrors {
     error: String,
@@ -67,14 +68,10 @@ where
                 });
             }
             state.add_expr_eval(expr, value.clone());
-            return Ok(value);
+            Ok(value)
         }
-        Expr::Integer(x) => {
-            return Ok(Value::Integer(*x));
-        }
-        Expr::Float(x) => {
-            return Ok(Value::Float(*x));
-        }
+        Expr::Integer(x) => Ok(Value::Integer(*x)),
+        Expr::Float(x) => Ok(Value::Float(*x)),
         Expr::String(_) => {
             unimplemented!()
         }
@@ -84,15 +81,13 @@ where
         Expr::Tuple(_tuple) => {
             unimplemented!()
         }
-        Expr::Parens(be) => {
-            return execute_expr(&*be, state);
-        }
+        Expr::Parens(be) => execute_expr(be, state),
         Expr::Op(e1, op, e2) => {
-            let v1 = execute_expr(&*e1, state)?;
-            let v2 = execute_expr(&*e2, state)?;
+            let v1 = execute_expr(e1, state)?;
+            let v2 = execute_expr(e2, state)?;
             let val = apply_op(v1, op, v2)?;
             state.add_expr_eval(expr, val.clone());
-            return Ok(val);
+            Ok(val)
         }
         Expr::Not(_) => {
             unimplemented!()
@@ -103,7 +98,7 @@ where
         Expr::FunctionCall(_, _) => {
             unimplemented!()
         }
-    };
+    }
 }
 
 fn execute_decl<'a, 'b>(
@@ -240,7 +235,7 @@ pub fn execute_fn<'a, 'b>(
 
     if args.len() != function.args.len() {
         return Err(ExecutionErrors {
-            error: format!("Invalid number of arguments."),
+            error: "Invalid number of arguments.".into(),
         });
     }
 

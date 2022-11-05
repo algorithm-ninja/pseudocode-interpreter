@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub grammar); // synthesized by LALRPOP
+lalrpop_mod!(#[allow(unknown_lints,clippy,clippy::all,warnings)] pub grammar); // synthesized by LALRPOP
 
 pub mod ast;
 pub mod eval;
@@ -55,6 +55,12 @@ impl<'a> VariableMapping<'a> {
     }
 }
 
+impl<'a> Default for VariableMapping<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug)]
 pub enum ExecutionEvent<'a> {
     ExprEval(&'a Expr),
@@ -66,7 +72,7 @@ pub enum ExecutionEvent<'a> {
 
 fn trace_exec<'a, T: AstFormatter<ExecutionDecorator<'a>>>(
     formatter: T,
-    program: &'a Vec<Item>,
+    program: &'a [Item],
     events: Vec<ExecutionEvent<'a>>,
     mapping: VariableMapping<'a>,
     order: Vec<&'a Ident>,
@@ -111,7 +117,7 @@ impl CodeParser for BlockParser {
 
 // Needs semicolons.
 fn parse<T: CodeParser>(code: String, parser: T) -> Vec<T::OutputElement> {
-    let src = code.replace("\n", ";\n"); // Add semicolons, as lalrpop ignores whitespace by default.
+    let src = code.replace('\n', ";\n"); // Add semicolons, as lalrpop ignores whitespace by default.
 
     let elements = parser.parse(&src);
     match elements {
@@ -224,7 +230,7 @@ pub fn eval_from_js(code: String, fn_name: String, args: Vec<i64>) -> js_sys::Ar
     eval_on_args(
         code,
         fn_name,
-        args.into_iter().map(|x| Value::Integer(x)).collect(),
+        args.into_iter().map(Value::Integer).collect(),
         /*emit_html*/ true,
     )
     .into_iter()
