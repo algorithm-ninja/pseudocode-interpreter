@@ -144,9 +144,9 @@ where
             typecheck_block(b, state)?;
         }
         Statement::For(d, l, r, _, b, _, _) => {
-            typecheck_decl(d, state)?;
             typecheck_expr(l, state)?;
             typecheck_expr(r, state)?;
+            typecheck_decl(d, state)?;
             typecheck_block(b, state)?;
         }
         Statement::Return(r) => {
