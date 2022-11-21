@@ -106,9 +106,9 @@ impl<D: AstDecorator> AstFormatter<D> for HtmlFormatter {
             Op::Lt => "&lt;",
             Op::Ge => "&ge;",
             Op::Gt => "&gt;",
-            Op::Eq => "&equals;",
+            Op::Eq => "&equals;&equals;",
             Op::Ne => "&ne;",
-            Op::And => "and ",
+            Op::And => "and",
             Op::Or => "or",
         }
         .into()
