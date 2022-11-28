@@ -26,9 +26,7 @@ pub struct Node<A: Ast, T: Debug + GetNode<T>> {
 
 impl<A: Ast, T: Debug + GetNode<T>> Node<A, T> {
     fn get_contents(&self) -> Result<&T, Error<A>> {
-        self.contents
-            .get()
-            .ok_or_else(|| Error::MissingNode(self.id))
+        self.contents.get().ok_or(Error::MissingNode(self.id))
     }
 }
 
@@ -71,6 +69,8 @@ pub enum RangeType {
     Closed,
 }
 
+type TypeNode<A> = Node<A, Type<A>>;
+
 // Valid types for a variable or expression to have.
 #[derive(Debug)]
 pub enum Type<A: Ast> {
@@ -78,11 +78,11 @@ pub enum Type<A: Ast> {
     Float,
     String,
     Bool,
-    Array(Box<Node<A, Type<A>>>),
-    Set(Box<Node<A, Type<A>>>),
-    Map(Box<Node<A, Type<A>>>, Box<Node<A, Type<A>>>),
-    Tuple(Vec<Node<A, Type<A>>>),
-    NamedTuple(Vec<(Ident<A>, Node<A, Type<A>>)>),
+    Array(Box<TypeNode<A>>),
+    Set(Box<TypeNode<A>>),
+    Map(Box<TypeNode<A>>, Box<TypeNode<A>>),
+    Tuple(Vec<TypeNode<A>>),
+    NamedTuple(Vec<(Ident<A>, TypeNode<A>)>),
     NamedType(Rc<TypeDecl<A>>),
 }
 
@@ -140,38 +140,40 @@ impl<A: Ast> Type<A> {
     }
 }
 
+type ExprNode<A> = Node<A, Expr<A>>;
+
 #[derive(Debug)]
 pub enum Expr<A: Ast> {
     Ref(Rc<VarDecl<A>>),
     Integer(i64),
     Float(f64),
     String(String),
-    Array(Vec<Node<A, Expr<A>>>),
-    Set(Vec<Node<A, Expr<A>>>),
-    Map(Vec<(Node<A, Expr<A>>, Node<A, Expr<A>>)>),
-    Tuple(Vec<Node<A, Expr<A>>>),
-    Range(Box<Node<A, Expr<A>>>, Box<Node<A, Expr<A>>>, RangeType),
-    Parens(Box<Node<A, Expr<A>>>),
-    BinaryOp(Box<Node<A, Expr<A>>>, BinaryOp, Box<Node<A, Expr<A>>>),
-    Not(Box<Node<A, Expr<A>>>),
-    ArrayIndex(Box<Node<A, Expr<A>>>, Box<Node<A, Expr<A>>>),
-    FunctionCall(Rc<RefCell<FnDecl<A>>>, Vec<Node<A, Expr<A>>>),
-    MethodCall(Box<Node<A, Expr<A>>>, Ident<A>, Vec<Node<A, Expr<A>>>),
-    Output(Box<Node<A, Expr<A>>>),
-    TupleField(Box<Node<A, Expr<A>>>, usize),
-    NamedTupleField(Box<Node<A, Expr<A>>>, Ident<A>),
+    Array(Vec<ExprNode<A>>),
+    Set(Vec<ExprNode<A>>),
+    Map(Vec<(ExprNode<A>, ExprNode<A>)>),
+    Tuple(Vec<ExprNode<A>>),
+    Range(Box<ExprNode<A>>, Box<ExprNode<A>>, RangeType),
+    Parens(Box<ExprNode<A>>),
+    BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),
+    Not(Box<ExprNode<A>>),
+    ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
+    FunctionCall(Rc<RefCell<FnDecl<A>>>, Vec<ExprNode<A>>),
+    MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),
+    Output(Box<ExprNode<A>>),
+    TupleField(Box<ExprNode<A>>, usize),
+    NamedTupleField(Box<ExprNode<A>>, Ident<A>),
 }
 
 #[derive(Debug)]
 pub enum Statement<A: Ast> {
     Decl(Rc<VarDecl<A>>),
     Comment(String),
-    Assign(Node<A, Expr<A>>, Node<A, Expr<A>>),
-    If(Node<A, Expr<A>>, Block<A>, Block<A>),
-    While(Node<A, Expr<A>>, Block<A>),
-    For(VarDecl<A>, Node<A, Expr<A>>, Node<A, Expr<A>>, Block<A>),
-    Return(Option<Node<A, Expr<A>>>),
-    Expr(Node<A, Expr<A>>),
+    Assign(ExprNode<A>, ExprNode<A>),
+    If(ExprNode<A>, Block<A>, Block<A>),
+    While(ExprNode<A>, Block<A>),
+    For(VarDecl<A>, ExprNode<A>, ExprNode<A>, Block<A>),
+    Return(Option<ExprNode<A>>),
+    Expr(ExprNode<A>),
 }
 
 #[derive(Debug)]
@@ -186,7 +188,7 @@ pub enum Item<A: Ast> {
 #[derive(Debug)]
 pub struct TypeDecl<A: Ast> {
     pub ident: Ident<A>,
-    pub ty: Node<A, Type<A>>,
+    pub ty: TypeNode<A>,
 }
 
 #[derive(Debug)]
@@ -197,15 +199,15 @@ pub struct Block<A: Ast> {
 #[derive(Debug)]
 pub struct VarDecl<A: Ast> {
     pub ident: Ident<A>,
-    pub ty: Node<A, Type<A>>,
-    pub val: Option<Node<A, Expr<A>>>,
+    pub ty: TypeNode<A>,
+    pub val: Option<ExprNode<A>>,
 }
 
 #[derive(Debug)]
 pub struct FnDecl<A: Ast> {
     pub ident: Ident<A>,
     pub args: Vec<VarDecl<A>>,
-    pub ret: Option<Node<A, Type<A>>>,
+    pub ret: Option<TypeNode<A>>,
     pub body: Block<A>,
 }
 

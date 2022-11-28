@@ -229,8 +229,7 @@ impl<'a> ParserState<'a> {
         let node = self
             .node_state
             .last()
-            .expect("Programming error: cloning a node while none are open")
-            .clone();
+            .expect("Programming error: cloning a node while none are open");
         assert!(node.id == id, "Programming error: cloning the wrong node");
         let id = self.next_node_id;
         self.next_node_id += 1;
@@ -271,7 +270,7 @@ impl<'a> ParserState<'a> {
 
     pub fn finalize(&self) -> Result<()> {
         assert!(
-            self.node_state.len() == 0,
+            self.node_state.is_empty(),
             "Programming error: some nodes were never closed"
         );
         assert!(
@@ -279,7 +278,7 @@ impl<'a> ParserState<'a> {
             "Programming error: some scopes were never closed"
         );
 
-        for (_, f) in self.unknown_functions.iter() {
+        if let Some((_, f)) = self.unknown_functions.iter().next() {
             return Err(Error::UnrecognizedFunction(f.borrow().ident.clone()));
         }
         Ok(())
