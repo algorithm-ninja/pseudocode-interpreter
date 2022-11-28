@@ -59,6 +59,12 @@ pub enum Token {
     End,
     #[token("return")]
     Return,
+    #[token("do")]
+    Do,
+    #[token("in")]
+    In,
+    #[token("then")]
+    Then,
 
     // Operators
     #[token("<-")]
