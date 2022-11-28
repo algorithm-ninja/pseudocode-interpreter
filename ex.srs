@@ -1,16 +1,21 @@
-variable b: integer
+type X: integer[]
+
+variable b: X
 variable c: integer
+
+// this is a comment
 function f(a: integer) -> integer
-  b <- 42
+  b <- [1, 42]
   c <- 42
+  // also this
   while a > 0 do
-    if a >= b then
-      a <- a - b
+    if a >= b[1] then
+      a <- a - b[1]
     else
       c <- a
-      a <- b
-      b <- c
+      a <- b[1]
+      b <- [42, 0]
     end if
   end while
-  return a + b + c
+  return a + b[1] + c
 end function
