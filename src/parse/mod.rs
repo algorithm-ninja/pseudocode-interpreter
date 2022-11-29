@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::error::Error;
 
 mod common;
@@ -31,7 +33,7 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
             (Token::Variable, _, _) => {
                 let id = parser_state.start_node();
                 let decl = parse_var_decl(&mut parser_state, /*allow_init=*/ false)?;
-                let decl = parser_state.add_var(decl)?;
+                let decl = parser_state.add_var(Rc::new(decl))?;
                 out.items
                     .push(parser_state.end_node(id, Item::GlobalVar(decl)));
             }

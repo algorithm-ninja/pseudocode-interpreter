@@ -67,6 +67,8 @@ pub enum Token {
     In,
     #[token("then")]
     Then,
+    #[token("output")]
+    Output,
 
     // Operators
     #[token("<-")]
@@ -99,6 +101,8 @@ pub enum Token {
     Mod,
     #[token("...")]
     Range,
+    #[token("not")]
+    Not,
 
     // Literals
     #[regex("[0-9]+")]

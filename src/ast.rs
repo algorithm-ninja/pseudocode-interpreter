@@ -148,6 +148,7 @@ pub enum Expr<A: Ast> {
     Integer(i64),
     Float(f64),
     String(String),
+    Bool(bool),
     Array(Vec<ExprNode<A>>),
     Set(Vec<ExprNode<A>>),
     Map(Vec<(ExprNode<A>, ExprNode<A>)>),
@@ -171,7 +172,7 @@ pub enum Statement<A: Ast> {
     Assign(ExprNode<A>, ExprNode<A>),
     If(ExprNode<A>, Block<A>, Block<A>),
     While(ExprNode<A>, Block<A>),
-    For(VarDecl<A>, ExprNode<A>, Block<A>),
+    For(Rc<VarDecl<A>>, ExprNode<A>, Block<A>),
     Return(Option<ExprNode<A>>),
     Expr(ExprNode<A>),
 }
@@ -206,7 +207,7 @@ pub struct VarDecl<A: Ast> {
 #[derive(Debug)]
 pub struct FnDecl<A: Ast> {
     pub ident: Ident<A>,
-    pub args: Vec<VarDecl<A>>,
+    pub args: Vec<Rc<VarDecl<A>>>,
     pub ret: Option<TypeNode<A>>,
     pub body: Block<A>,
 }

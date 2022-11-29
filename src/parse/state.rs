@@ -110,6 +110,18 @@ impl<'a> ParserState<'a> {
         })
     }
 
+    pub fn integer_lit(&mut self) -> Result<i64> {
+        let (r, s) = self.require(Token::IntegerLit)?;
+        s.parse()
+            .map_err(|_| Error::ParseError(vec![Token::IntegerLit], s.to_owned(), r.clone()))
+    }
+
+    pub fn float_lit(&mut self) -> Result<f64> {
+        let (r, s) = self.require(Token::FloatLit)?;
+        s.parse()
+            .map_err(|_| Error::ParseError(vec![Token::IntegerLit], s.to_owned(), r.clone()))
+    }
+
     fn disallow_rollback(&mut self) {
         for n in &mut self.node_state {
             n.can_rollback = false;
@@ -177,7 +189,7 @@ impl<'a> ParserState<'a> {
         Err(Error::UnrecognizedVariable(ident))
     }
 
-    pub fn add_var(&mut self, decl: VarDecl<TextAst>) -> Result<Rc<VarDecl<TextAst>>> {
+    pub fn add_var(&mut self, decl: Rc<VarDecl<TextAst>>) -> Result<Rc<VarDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
@@ -187,7 +199,7 @@ impl<'a> ParserState<'a> {
             ));
         }
         let name = decl.ident.name.clone();
-        scope.variables.insert(name.clone(), Rc::new(decl));
+        scope.variables.insert(name.clone(), decl);
         Ok(scope.variables.get(&name).unwrap().clone())
     }
 

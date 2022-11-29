@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::parse::expr::parse_expr;
 
 use super::common::*;
@@ -26,15 +28,21 @@ pub fn parse_var_decl(
     Ok(VarDecl { ident, ty, val })
 }
 
-pub fn parse_block(parser_state: &mut ParserState) -> Result<Block<TextAst>> {
+pub fn parse_block(
+    parser_state: &mut ParserState,
+    extra_decls: &Vec<Rc<VarDecl<TextAst>>>,
+) -> Result<Block<TextAst>> {
     let mut statements = vec![];
     parser_state.start_scope();
+    for var in extra_decls {
+        parser_state.add_var(var.clone())?;
+    }
     loop {
         match parser_state.peek()? {
             (Token::Variable, _, _) => {
                 let id = parser_state.start_node();
                 let v = parse_var_decl(parser_state, /*allow_init=*/ true)?;
-                let v = parser_state.add_var(v)?;
+                let v = parser_state.add_var(Rc::new(v))?;
                 statements.push(parser_state.end_node(id, Statement::Decl(v)));
             }
             (Token::Comment, _, s) => {
@@ -53,11 +61,11 @@ pub fn parse_block(parser_state: &mut ParserState) -> Result<Block<TextAst>> {
                 let cond = parse_expr(parser_state)?;
                 parser_state.require(Token::Then)?;
                 parser_state.require(Token::Newline)?;
-                let then_block = parse_block(parser_state)?;
+                let then_block = parse_block(parser_state, &vec![])?;
                 let else_block = if parser_state.peek()?.0 == Token::Else {
                     parser_state.require(Token::Else)?;
                     parser_state.require(Token::Newline)?;
-                    parse_block(parser_state)?
+                    parse_block(parser_state, &vec![])?
                 } else {
                     Block { statements: vec![] }
                 };
@@ -73,7 +81,7 @@ pub fn parse_block(parser_state: &mut ParserState) -> Result<Block<TextAst>> {
                 let cond = parse_expr(parser_state)?;
                 parser_state.require(Token::Do)?;
                 parser_state.require(Token::Newline)?;
-                let block = parse_block(parser_state)?;
+                let block = parse_block(parser_state, &vec![])?;
                 parser_state.require(Token::End)?;
                 parser_state.require(Token::While)?;
                 parser_state.require(Token::Newline)?;
@@ -82,12 +90,18 @@ pub fn parse_block(parser_state: &mut ParserState) -> Result<Block<TextAst>> {
             (Token::For, _, _) => {
                 let id = parser_state.start_node();
                 parser_state.require(Token::For)?;
-                let var = parse_var_decl(parser_state, /*allow_init=*/ false)?;
+                let ident = parser_state.ident()?;
+                parser_state.require(Token::Colon)?;
+                let var = Rc::new(VarDecl {
+                    ident,
+                    ty: parse_type(parser_state)?,
+                    val: None,
+                });
                 parser_state.require(Token::In)?;
                 let arr = parse_expr(parser_state)?;
                 parser_state.require(Token::Do)?;
                 parser_state.require(Token::Newline)?;
-                let block = parse_block(parser_state)?;
+                let block = parse_block(parser_state, &vec![var.clone()])?;
                 parser_state.require(Token::End)?;
                 parser_state.require(Token::For)?;
                 parser_state.require(Token::Newline)?;
@@ -137,11 +151,11 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
     loop {
         let ident = parser_state.ident()?;
         parser_state.require(Token::Colon)?;
-        args.push(VarDecl {
+        args.push(Rc::new(VarDecl {
             ident,
             ty: parse_type(parser_state)?,
             val: None,
-        });
+        }));
         if parser_state.peek()?.0 == Token::ClosedP {
             parser_state.require(Token::ClosedP)?;
             break;
@@ -160,7 +174,7 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
         None
     };
     parser_state.require(Token::Newline)?;
-    let body = parse_block(parser_state)?;
+    let body = parse_block(parser_state, &args)?;
     parser_state.require(Token::End)?;
     parser_state.require(Token::Function)?;
     parser_state.require(Token::Newline)?;
