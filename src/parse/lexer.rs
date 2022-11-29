@@ -51,6 +51,8 @@ pub enum Token {
     // Control flow keywords
     #[token("while")]
     While,
+    #[token("for")]
+    For,
     #[token("if")]
     If,
     #[token("else")]

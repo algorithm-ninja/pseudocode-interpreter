@@ -1,6 +1,7 @@
 use crate::error::Error;
 
 mod common;
+mod expr;
 mod lexer;
 mod state;
 mod statement;
@@ -38,6 +39,7 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
                 let s = s[2..].to_owned();
                 let id = parser_state.start_node();
                 parser_state.require(Token::Comment)?;
+                parser_state.require(Token::Newline)?;
                 out.items.push(parser_state.end_node(id, Item::Comment(s)));
             }
             (Token::Newline, _, _) => {

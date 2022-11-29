@@ -171,7 +171,7 @@ pub enum Statement<A: Ast> {
     Assign(ExprNode<A>, ExprNode<A>),
     If(ExprNode<A>, Block<A>, Block<A>),
     While(ExprNode<A>, Block<A>),
-    For(VarDecl<A>, ExprNode<A>, ExprNode<A>, Block<A>),
+    For(VarDecl<A>, ExprNode<A>, Block<A>),
     Return(Option<ExprNode<A>>),
     Expr(ExprNode<A>),
 }
