@@ -144,6 +144,7 @@ fn parse_expr_with_precedence(
             }
         }
         (Token::OpenBr, _, _) => {
+            // TODO(veluca): what is a "{}"?
             let mut parse_map = || {
                 parser_state.require(Token::OpenBr)?;
 
