@@ -47,22 +47,6 @@ pub enum BinaryOp {
     Or,
 }
 
-impl BinaryOp {
-    pub fn precedence(&self) -> usize {
-        match self {
-            BinaryOp::And | BinaryOp::Or => 0,
-            BinaryOp::Ne
-            | BinaryOp::Eq
-            | BinaryOp::Ge
-            | BinaryOp::Gt
-            | BinaryOp::Le
-            | BinaryOp::Lt => 1,
-            BinaryOp::Sub | BinaryOp::Sum => 2,
-            BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 3,
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum RangeType {
     HalfOpen,
@@ -153,6 +137,7 @@ pub enum Expr<A: Ast> {
     Set(Vec<ExprNode<A>>),
     Map(Vec<(ExprNode<A>, ExprNode<A>)>),
     Tuple(Vec<ExprNode<A>>),
+    NamedTuple(Vec<(Ident<A>, ExprNode<A>)>),
     Range(Box<ExprNode<A>>, Box<ExprNode<A>>, RangeType),
     Parens(Box<ExprNode<A>>),
     BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),

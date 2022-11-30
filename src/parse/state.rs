@@ -293,6 +293,7 @@ impl<'a> ParserState<'a> {
             "Programming error: rolling back the wrong node"
         );
         self.input_pos = node.start_pos;
+        self.node_state.push(node);
     }
 
     pub fn finalize(&self) -> Result<()> {
