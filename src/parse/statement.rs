@@ -16,9 +16,7 @@ pub fn parse_var_decl(
     let ident = parser_state.ident()?;
     parser_state.require(Token::Colon)?;
     let ty = parse_type(parser_state)?;
-    let val = if !allow_init {
-        None
-    } else if parser_state.peek()?.0 == Token::Newline {
+    let val = if !allow_init || parser_state.peek()?.0 == Token::Newline {
         None
     } else {
         parser_state.require(Token::Assign)?;
