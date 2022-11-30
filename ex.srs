@@ -8,16 +8,14 @@ function f(a: integer) -> integer
   b <- [1, 42]
   c <- 42
   // also this
-  // while a > 0 do
-  while a do
-    // if a >= b[1] then
-    if a then
-      // a <- a - b[1]
+  while a > 0 and a > 0 do
+    if a >= b[1] then
+      a <- a - b[1]
     else
       c <- a
       a <- b[1]
       b <- [42, 0]
     end if
   end while
-  // return a + b[1] + c
+  return a + b[1] + c * 2
 end function

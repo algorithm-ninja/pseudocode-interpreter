@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");
 
-    println!("{:?}", parse::parse(&src));
+    println!("{:#?}", parse::parse(&src));
 
     Ok(())
 }

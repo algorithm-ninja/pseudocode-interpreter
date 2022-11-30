@@ -18,7 +18,6 @@ use ty::*;
 
 pub fn parse(src: &str) -> Result<Program<TextAst>> {
     let mut parser_state = ParserState::new(src);
-    println!("{:?}", parser_state);
 
     let mut out = Program { items: vec![] };
 
@@ -68,7 +67,6 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
             }
         }
     }
-    println!("{:?}", parser_state);
 
     parser_state.finalize()?;
 

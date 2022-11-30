@@ -25,9 +25,27 @@ fn parse_expr_list(
     Ok((exprs, has_comma))
 }
 
+fn get_operation(token: Token) -> Option<(BinaryOp, usize)> {
+    match token {
+        Token::And => Some((BinaryOp::And, 1)),
+        Token::Or => Some((BinaryOp::Or, 1)),
+        Token::Ne => Some((BinaryOp::Ne, 2)),
+        Token::Ge => Some((BinaryOp::Ge, 2)),
+        Token::Le => Some((BinaryOp::Le, 2)),
+        Token::Gt => Some((BinaryOp::Gt, 2)),
+        Token::Lt => Some((BinaryOp::Lt, 2)),
+        Token::Sum => Some((BinaryOp::Sum, 3)),
+        Token::Sub => Some((BinaryOp::Sub, 3)),
+        Token::Mul => Some((BinaryOp::Mul, 4)),
+        Token::Div => Some((BinaryOp::Div, 4)),
+        Token::Mod => Some((BinaryOp::Mod, 4)),
+        _ => None,
+    }
+}
+
 fn parse_expr_with_precedence(
     parser_state: &mut ParserState,
-    precedence: usize,
+    left_precedence: usize,
 ) -> Result<Node<TextAst, Expr<TextAst>>> {
     let id = parser_state.start_node();
     let mut expr = match parser_state.peek()? {
@@ -165,6 +183,11 @@ fn parse_expr_with_precedence(
             parser_state.require(Token::ClosedP)?;
             Expr::Output(Box::new(expr))
         }
+        (Token::Not, _, _) => {
+            parser_state.require(Token::Not)?;
+            let expr = parse_expr_with_precedence(parser_state, usize::MAX)?;
+            Expr::Not(Box::new(expr))
+        }
 
         (_, r, s) => {
             return Err(Error::ParseError(
@@ -222,6 +245,21 @@ fn parse_expr_with_precedence(
                         let ident = parser_state.ident()?;
                         Expr::NamedTupleField(be, ident)
                     }
+                }
+            }
+            (tok, _, _) if get_operation(tok).is_some() => {
+                let (op, prec) = get_operation(tok).unwrap();
+                if left_precedence >= prec {
+                    // Left operator binds at least as strongly as the next operator. Return to caller and
+                    // let them get the current expression.
+                    break;
+                }
+                let new_id = parser_state.clone_node(id);
+                expr = {
+                    let be = Box::new(parser_state.end_node(new_id, expr));
+                    parser_state.require(tok)?;
+                    let next_expr = Box::new(parse_expr_with_precedence(parser_state, prec)?);
+                    Expr::BinaryOp(be, op, next_expr)
                 }
             }
             (_, _, _) => {
