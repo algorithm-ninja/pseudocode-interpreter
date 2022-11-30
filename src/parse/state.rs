@@ -312,3 +312,30 @@ impl<'a> ParserState<'a> {
         Ok(())
     }
 }
+
+pub fn parse_comma_separated<T, F>(
+    parser_state: &mut ParserState,
+    closing_delim: Token,
+    parse_one: F,
+) -> Result<(Vec<T>, bool)>
+where
+    F: Fn(&mut ParserState) -> Result<T>,
+{
+    let mut exprs = vec![];
+    let mut has_comma = false;
+    loop {
+        exprs.push(parse_one(parser_state)?);
+        if parser_state.peek()?.0 == closing_delim {
+            parser_state.require(closing_delim)?;
+            break;
+        }
+        parser_state.require(Token::Comma)?;
+        has_comma = true;
+        // This check allows trailing commas.
+        if parser_state.peek()?.0 == closing_delim {
+            parser_state.require(closing_delim)?;
+            break;
+        }
+    }
+    Ok((exprs, has_comma))
+}

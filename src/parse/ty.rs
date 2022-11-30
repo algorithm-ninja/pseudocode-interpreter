@@ -12,38 +12,16 @@ pub fn parse_type(parser_state: &mut ParserState) -> Result<Node<TextAst, Type<T
             // Named tuples have an identifier followed by a colon, and they are the only types
             // that have a colon as the second token.
             if parser_state.peek_next() == Token::Colon {
-                let mut names_and_types = vec![];
-                loop {
-                    let ident = parser_state.ident()?;
-                    parser_state.require(Token::Colon)?;
-                    names_and_types.push((ident, parse_type(parser_state)?));
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                    parser_state.require(Token::Comma)?;
-                    // This check allows trailing commas.
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                }
-                Type::NamedTuple(names_and_types)
+                Type::NamedTuple(
+                    parse_comma_separated(parser_state, Token::ClosedP, |ps| {
+                        let ident = ps.ident()?;
+                        ps.require(Token::Colon)?;
+                        Ok((ident, parse_type(ps)?))
+                    })?
+                    .0,
+                )
             } else {
-                let mut types = vec![];
-                loop {
-                    types.push(parse_type(parser_state)?);
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                    parser_state.require(Token::Comma)?;
-                    // This check allows trailing commas.
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                }
+                let types = parse_comma_separated(parser_state, Token::ClosedP, parse_type)?.0;
                 if types.len() <= 1 {
                     parser_state.fail_node(id, "Type tuples need at least 2 elements".into())?;
                 }

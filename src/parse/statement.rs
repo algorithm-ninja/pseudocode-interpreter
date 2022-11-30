@@ -147,26 +147,16 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
     parser_state.require(Token::Function)?;
     let ident = parser_state.ident()?;
     parser_state.require(Token::OpenP)?;
-    let mut args = vec![];
-    loop {
-        let ident = parser_state.ident()?;
-        parser_state.require(Token::Colon)?;
-        args.push(Rc::new(VarDecl {
+    let args = parse_comma_separated(parser_state, Token::ClosedP, |ps| {
+        let ident = ps.ident()?;
+        ps.require(Token::Colon)?;
+        Ok(Rc::new(VarDecl {
             ident,
-            ty: parse_type(parser_state)?,
+            ty: parse_type(ps)?,
             val: None,
-        }));
-        if parser_state.peek()?.0 == Token::ClosedP {
-            parser_state.require(Token::ClosedP)?;
-            break;
-        }
-        parser_state.require(Token::Comma)?;
-        // This check allows trailing commas.
-        if parser_state.peek()?.0 == Token::ClosedP {
-            parser_state.require(Token::ClosedP)?;
-            break;
-        }
-    }
+        }))
+    })?
+    .0;
     let ret = if parser_state.peek()?.0 == Token::Arrow {
         parser_state.require(Token::Arrow)?;
         Some(parse_type(parser_state)?)

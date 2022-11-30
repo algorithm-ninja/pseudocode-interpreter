@@ -2,29 +2,6 @@ use super::common::*;
 use super::lexer::*;
 use super::state::*;
 
-fn parse_expr_list(
-    parser_state: &mut ParserState,
-    closing_delim: Token,
-) -> Result<(Vec<Node<TextAst, Expr<TextAst>>>, bool)> {
-    let mut exprs = vec![];
-    let mut has_comma = false;
-    loop {
-        exprs.push(parse_expr(parser_state)?);
-        if parser_state.peek()?.0 == closing_delim {
-            parser_state.require(closing_delim)?;
-            break;
-        }
-        parser_state.require(Token::Comma)?;
-        has_comma = true;
-        // This check allows trailing commas.
-        if parser_state.peek()?.0 == closing_delim {
-            parser_state.require(closing_delim)?;
-            break;
-        }
-    }
-    Ok((exprs, has_comma))
-}
-
 fn get_operation(token: Token) -> Option<(BinaryOp, usize)> {
     match token {
         Token::And => Some((BinaryOp::And, 1)),
@@ -70,7 +47,7 @@ fn parse_expr_with_precedence(
                 // This is a function call.
                 let fun = parser_state.find_fn(ident);
                 parser_state.require(Token::OpenP)?;
-                let (args, _) = parse_expr_list(parser_state, Token::ClosedP)?;
+                let (args, _) = parse_comma_separated(parser_state, Token::ClosedP, parse_expr)?;
                 Expr::FunctionCall(fun, args)
             } else {
                 // Variable reference.
@@ -108,31 +85,23 @@ fn parse_expr_with_precedence(
             } else {
                 parser_state.rollback_node(id);
                 parser_state.require(Token::OpenSq)?;
-                Expr::Array(parse_expr_list(parser_state, Token::ClosedSq)?.0)
+                Expr::Array(parse_comma_separated(parser_state, Token::ClosedSq, parse_expr)?.0)
             }
         }
         (Token::OpenP, _, _) => {
             parser_state.require(Token::OpenP)?;
             if parser_state.peek_next() == Token::Colon {
-                let mut names_and_values = vec![];
-                loop {
-                    let ident = parser_state.ident()?;
-                    parser_state.require(Token::Colon)?;
-                    names_and_values.push((ident, parse_expr(parser_state)?));
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                    parser_state.require(Token::Comma)?;
-                    // This check allows trailing commas.
-                    if parser_state.peek()?.0 == Token::ClosedP {
-                        parser_state.require(Token::ClosedP)?;
-                        break;
-                    }
-                }
-                Expr::NamedTuple(names_and_values)
+                Expr::NamedTuple(
+                    parse_comma_separated(parser_state, Token::ClosedP, |ps| {
+                        let ident = ps.ident()?;
+                        ps.require(Token::Colon)?;
+                        Ok((ident, parse_expr(ps)?))
+                    })?
+                    .0,
+                )
             } else {
-                let (tuple_elems, has_comma) = parse_expr_list(parser_state, Token::ClosedP)?;
+                let (tuple_elems, has_comma) =
+                    parse_comma_separated(parser_state, Token::ClosedP, parse_expr)?;
                 if (tuple_elems.len() == 1 && has_comma) || tuple_elems.is_empty() {
                     parser_state.fail_node(id, "cannot have tuples of <= one element".into())?;
                 }
@@ -148,23 +117,14 @@ fn parse_expr_with_precedence(
             let mut parse_map = || {
                 parser_state.require(Token::OpenBr)?;
 
-                let mut keys_and_values = vec![];
-                loop {
-                    let key = parse_expr(parser_state)?;
-                    parser_state.require(Token::Arrow)?;
-                    keys_and_values.push((key, parse_expr(parser_state)?));
-                    if parser_state.peek()?.0 == Token::ClosedBr {
-                        parser_state.require(Token::ClosedBr)?;
-                        break;
-                    }
-                    parser_state.require(Token::Comma)?;
-                    // This check allows trailing commas.
-                    if parser_state.peek()?.0 == Token::ClosedBr {
-                        parser_state.require(Token::ClosedBr)?;
-                        break;
-                    }
-                }
-                Ok(Expr::Map(keys_and_values))
+                Ok(Expr::Map(
+                    parse_comma_separated(parser_state, Token::ClosedBr, |ps| {
+                        let key = parse_expr(ps)?;
+                        ps.require(Token::Arrow)?;
+                        Ok((key, parse_expr(ps)?))
+                    })?
+                    .0,
+                ))
             };
 
             let map: Result<_> = parse_map();
@@ -174,7 +134,7 @@ fn parse_expr_with_precedence(
             } else {
                 parser_state.rollback_node(id);
                 parser_state.require(Token::OpenBr)?;
-                Expr::Set(parse_expr_list(parser_state, Token::ClosedBr)?.0)
+                Expr::Set(parse_comma_separated(parser_state, Token::ClosedBr, parse_expr)?.0)
             }
         }
         (Token::Output, _, _) => {
@@ -232,7 +192,8 @@ fn parse_expr_with_precedence(
                         // method call
                         let method = parser_state.ident()?;
                         parser_state.require(Token::OpenP)?;
-                        let (args, _) = parse_expr_list(parser_state, Token::ClosedP)?;
+                        let (args, _) =
+                            parse_comma_separated(parser_state, Token::ClosedP, parse_expr)?;
                         Expr::MethodCall(be, method, args)
                     } else if parser_state.peek()?.0 == Token::IntegerLit {
                         let index = parser_state.integer_lit()?;
