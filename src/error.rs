@@ -11,6 +11,8 @@ use crate::{
 pub enum Error<A: Ast> {
     #[error("parse error: expected one of {0:?}, found {1:?} at position {2:?}")]
     ParseError(Vec<Token>, String, Range<usize>),
+    #[error("parse error: {1:?} at position {2:?} is invalid, {0}")]
+    GenericParseError(String, String, Range<usize>),
     #[error("parse error: unrecognized token {0} at position {1:?}")]
     UnrecognizedToken(String, Range<usize>),
     #[error("error: unrecognized variable {0:?}")]

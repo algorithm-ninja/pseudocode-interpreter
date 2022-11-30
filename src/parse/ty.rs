@@ -44,6 +44,9 @@ pub fn parse_type(parser_state: &mut ParserState) -> Result<Node<TextAst, Type<T
                         break;
                     }
                 }
+                if types.len() <= 1 {
+                    parser_state.fail_node(id, "Type tuples need at least 2 elements".into())?;
+                }
                 Type::Tuple(types)
             }
         }

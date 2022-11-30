@@ -268,6 +268,21 @@ impl<'a> ParserState<'a> {
         }
     }
 
+    pub fn fail_node(&mut self, id: usize, message: String) -> Result<()> {
+        let node = self
+            .node_state
+            .pop()
+            .expect("Programming error: closing a node while none are open");
+        assert!(node.id == id, "Programming error: closing the wrong node");
+        let start = self.tokens[node.start_pos].1.start;
+        let end = self.tokens[self.input_pos].1.end;
+        Err(Error::GenericParseError(
+            message,
+            self.input[start..end].to_owned(),
+            start..end,
+        ))
+    }
+
     pub fn rollback_node(&mut self, id: usize) {
         let node = self
             .node_state
