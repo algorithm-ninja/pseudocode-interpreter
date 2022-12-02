@@ -263,8 +263,12 @@ impl<'a> ParserState<'a> {
             .pop()
             .expect("Programming error: closing a node while none are open");
         assert!(node.id == id, "Programming error: closing the wrong node");
+        assert!(
+            self.input_pos >= 1,
+            "Programming error: closing a node with no content"
+        );
         let start = self.tokens[node.start_pos].1.start;
-        let end = self.tokens[self.input_pos].1.end;
+        let end = self.tokens[self.input_pos - 1].1.end;
         Node {
             id: node.id,
             contents,

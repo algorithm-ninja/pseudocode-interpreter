@@ -5,6 +5,7 @@ use std::io::Read;
 
 use anyhow::Result;
 
+use pseudocode_interpreter::error;
 use pseudocode_interpreter::parse;
 use pseudocode_interpreter::typecheck;
 
@@ -12,6 +13,16 @@ use pseudocode_interpreter::typecheck;
 struct Args {
     /// Pseudocode source file.
     source: String,
+}
+
+fn print_error_with_location(s: &str, err: error::Error<parse::TextAst>) {
+    let mut s = s.to_owned();
+    let r = err.get_error_location();
+    let replacement = "\x1b[31;1m".to_owned() + &s[r.clone()] + "\x1b[;m";
+    s.replace_range(r, &replacement);
+    println!("Error in input program");
+    println!("{}", s);
+    println!("{}", err);
 }
 
 fn main() -> Result<()> {
@@ -23,7 +34,10 @@ fn main() -> Result<()> {
     file.read_to_string(&mut src).expect("Unable to read file");
 
     let ast = parse::parse(&src)?;
-    println!("{:#?}", typecheck::typecheck(&ast)?);
+    if let Err(err) = typecheck::typecheck(&ast) {
+        print_error_with_location(&src, err);
+        return Ok(());
+    }
 
     Ok(())
 }

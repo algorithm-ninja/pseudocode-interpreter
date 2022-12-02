@@ -11,6 +11,7 @@ mod ty;
 
 pub use lexer::Token;
 
+pub use common::TextAst;
 use common::*;
 use state::*;
 use statement::*;

@@ -25,6 +25,7 @@ fn expect_type<A: Ast, NT: Debug + GetNode<NT> + Clone>(
     Err(Error::TypeError(
         node.id,
         node.info.clone(),
+        node_type.clone(),
         types.into_iter().cloned().cloned().collect(),
     ))
 }
