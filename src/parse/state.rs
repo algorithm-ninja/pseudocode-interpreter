@@ -1,14 +1,14 @@
 use super::common::*;
 use super::lexer::*;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, ops::Range, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
 
 use logos::Logos;
 
 #[derive(Debug)]
 struct ScopeState {
-    types: HashMap<String, Rc<TypeDecl<TextAst>>>,
-    variables: HashMap<String, Rc<VarDecl<TextAst>>>,
-    functions: HashMap<String, Rc<RefCell<FnDecl<TextAst>>>>,
+    types: HashMap<String, Arc<TypeDecl<TextAst>>>,
+    variables: HashMap<String, Arc<VarDecl<TextAst>>>,
+    functions: HashMap<String, Arc<RefCell<FnDecl<TextAst>>>>,
 }
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub struct ParserState<'a> {
     scope_state: Vec<ScopeState>,
     node_state: Vec<NodeState>,
     // All functions that are not yet fully defined.
-    unknown_functions: HashMap<String, Rc<RefCell<FnDecl<TextAst>>>>,
+    unknown_functions: HashMap<String, Arc<RefCell<FnDecl<TextAst>>>>,
 }
 
 impl<'a> ParserState<'a> {
@@ -140,7 +140,7 @@ impl<'a> ParserState<'a> {
             .expect("Programming error: closing a scope while none are open");
     }
 
-    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> Rc<RefCell<FnDecl<TextAst>>> {
+    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> Arc<RefCell<FnDecl<TextAst>>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.functions.get(&ident.name) {
                 return x.clone();
@@ -149,7 +149,7 @@ impl<'a> ParserState<'a> {
         if let Some(x) = self.unknown_functions.get(&ident.name) {
             return x.clone();
         }
-        let fd = Rc::new(RefCell::new(FnDecl {
+        let fd = Arc::new(RefCell::new(FnDecl {
             ident: ident.clone(),
             args: vec![],
             body: Block { statements: vec![] },
@@ -159,7 +159,7 @@ impl<'a> ParserState<'a> {
         fd
     }
 
-    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<Rc<RefCell<FnDecl<TextAst>>>> {
+    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<Arc<RefCell<FnDecl<TextAst>>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
@@ -174,13 +174,13 @@ impl<'a> ParserState<'a> {
             *self.unknown_functions.get_mut(&name).unwrap().borrow_mut() = decl;
             self.unknown_functions.remove(&name).unwrap()
         } else {
-            Rc::new(RefCell::new(decl))
+            Arc::new(RefCell::new(decl))
         };
         scope.functions.insert(name.clone(), decl);
         Ok(scope.functions.get(&name).unwrap().clone())
     }
 
-    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<Rc<VarDecl<TextAst>>> {
+    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<Arc<VarDecl<TextAst>>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.variables.get(&ident.name) {
                 return Ok(x.clone());
@@ -189,7 +189,7 @@ impl<'a> ParserState<'a> {
         Err(Error::UnrecognizedVariable(ident))
     }
 
-    pub fn add_var(&mut self, decl: Rc<VarDecl<TextAst>>) -> Result<Rc<VarDecl<TextAst>>> {
+    pub fn add_var(&mut self, decl: Arc<VarDecl<TextAst>>) -> Result<Arc<VarDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
@@ -203,7 +203,7 @@ impl<'a> ParserState<'a> {
         Ok(scope.variables.get(&name).unwrap().clone())
     }
 
-    pub fn find_type(&mut self, ident: Ident<TextAst>) -> Result<Rc<TypeDecl<TextAst>>> {
+    pub fn find_type(&mut self, ident: Ident<TextAst>) -> Result<Arc<TypeDecl<TextAst>>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.types.get(&ident.name) {
                 return Ok(x.clone());
@@ -212,7 +212,7 @@ impl<'a> ParserState<'a> {
         Err(Error::UnrecognizedType(ident))
     }
 
-    pub fn add_type(&mut self, decl: TypeDecl<TextAst>) -> Result<Rc<TypeDecl<TextAst>>> {
+    pub fn add_type(&mut self, decl: TypeDecl<TextAst>) -> Result<Arc<TypeDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
@@ -222,7 +222,7 @@ impl<'a> ParserState<'a> {
             ));
         }
         let name = decl.ident.name.clone();
-        scope.types.insert(name.clone(), Rc::new(decl));
+        scope.types.insert(name.clone(), Arc::new(decl));
         Ok(scope.types.get(&name).unwrap().clone())
     }
 
@@ -253,7 +253,11 @@ impl<'a> ParserState<'a> {
         id
     }
 
-    pub fn end_node<T: Debug + GetNode<T>>(&mut self, id: usize, contents: T) -> Node<TextAst, T> {
+    pub fn end_node<T: Debug + GetNode<T> + Clone>(
+        &mut self,
+        id: usize,
+        contents: T,
+    ) -> Node<TextAst, T> {
         let node = self
             .node_state
             .pop()

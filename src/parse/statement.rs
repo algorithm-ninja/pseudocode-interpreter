@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::parse::expr::parse_expr;
 
@@ -28,7 +28,7 @@ pub fn parse_var_decl(
 
 pub fn parse_block(
     parser_state: &mut ParserState,
-    extra_decls: &Vec<Rc<VarDecl<TextAst>>>,
+    extra_decls: &Vec<Arc<VarDecl<TextAst>>>,
 ) -> Result<Block<TextAst>> {
     let mut statements = vec![];
     parser_state.start_scope();
@@ -40,7 +40,7 @@ pub fn parse_block(
             (Token::Variable, _, _) => {
                 let id = parser_state.start_node();
                 let v = parse_var_decl(parser_state, /*allow_init=*/ true)?;
-                let v = parser_state.add_var(Rc::new(v))?;
+                let v = parser_state.add_var(Arc::new(v))?;
                 statements.push(parser_state.end_node(id, Statement::Decl(v)));
             }
             (Token::Comment, _, s) => {
@@ -90,7 +90,7 @@ pub fn parse_block(
                 parser_state.require(Token::For)?;
                 let ident = parser_state.ident()?;
                 parser_state.require(Token::Colon)?;
-                let var = Rc::new(VarDecl {
+                let var = Arc::new(VarDecl {
                     ident,
                     ty: parse_type(parser_state)?,
                     val: None,
@@ -148,7 +148,7 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
     let args = parse_comma_separated(parser_state, Token::ClosedP, |ps| {
         let ident = ps.ident()?;
         ps.require(Token::Colon)?;
-        Ok(Rc::new(VarDecl {
+        Ok(Arc::new(VarDecl {
             ident,
             ty: parse_type(ps)?,
             val: None,

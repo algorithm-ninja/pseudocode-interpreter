@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Debug, rc::Rc};
+use std::{cell::RefCell, fmt::Debug, sync::Arc};
 
 use crate::error::Error;
 
@@ -7,7 +7,7 @@ pub trait GetNode<T> {
 }
 
 pub trait Ast: Debug + Clone {
-    type NodeWrapper<T: Debug + GetNode<T>>: Debug + GetNode<T>;
+    type NodeWrapper<T: Debug + Clone + GetNode<T>>: Debug + Clone + GetNode<T>;
     type NodeInfo: Debug + Clone;
 }
 
@@ -17,20 +17,22 @@ pub struct Ident<A: Ast> {
     pub info: A::NodeInfo,
 }
 
-#[derive(Debug)]
-pub struct Node<A: Ast, T: Debug + GetNode<T>> {
+#[derive(Debug, Clone)]
+pub struct Node<A: Ast, T: Debug + GetNode<T> + Clone> {
     pub id: usize,
     pub info: A::NodeInfo,
     pub contents: A::NodeWrapper<T>,
 }
 
-impl<A: Ast, T: Debug + GetNode<T>> Node<A, T> {
-    fn get_contents(&self) -> Result<&T, Error<A>> {
-        self.contents.get().ok_or(Error::MissingNode(self.id))
+impl<A: Ast, T: Debug + GetNode<T> + Clone> Node<A, T> {
+    pub fn get_contents(&self) -> Result<&T, Error<A>> {
+        self.contents
+            .get()
+            .ok_or(Error::MissingNode(self.id, self.info.clone()))
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinaryOp {
     Sum,
     Sub,
@@ -47,7 +49,7 @@ pub enum BinaryOp {
     Or,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum RangeType {
     HalfOpen,
     Closed,
@@ -56,7 +58,7 @@ pub enum RangeType {
 type TypeNode<A> = Node<A, Type<A>>;
 
 // Valid types for a variable or expression to have.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Type<A: Ast> {
     Integer,
     Float,
@@ -67,7 +69,7 @@ pub enum Type<A: Ast> {
     Map(Box<TypeNode<A>>, Box<TypeNode<A>>),
     Tuple(Vec<TypeNode<A>>),
     NamedTuple(Vec<(Ident<A>, TypeNode<A>)>),
-    NamedType(Rc<TypeDecl<A>>),
+    NamedType(Arc<TypeDecl<A>>),
 }
 
 impl<A: Ast> Type<A> {
@@ -126,9 +128,9 @@ impl<A: Ast> Type<A> {
 
 type ExprNode<A> = Node<A, Expr<A>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr<A: Ast> {
-    Ref(Rc<VarDecl<A>>),
+    Ref(Arc<VarDecl<A>>),
     Integer(i64),
     Float(f64),
     String(String),
@@ -143,31 +145,31 @@ pub enum Expr<A: Ast> {
     BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),
     Not(Box<ExprNode<A>>),
     ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
-    FunctionCall(Rc<RefCell<FnDecl<A>>>, Vec<ExprNode<A>>),
+    FunctionCall(Arc<RefCell<FnDecl<A>>>, Vec<ExprNode<A>>),
     MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),
     Output(Box<ExprNode<A>>),
     TupleField(Box<ExprNode<A>>, usize),
     NamedTupleField(Box<ExprNode<A>>, Ident<A>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Statement<A: Ast> {
-    Decl(Rc<VarDecl<A>>),
+    Decl(Arc<VarDecl<A>>),
     Comment(String),
     Assign(ExprNode<A>, ExprNode<A>),
     If(ExprNode<A>, Block<A>, Block<A>),
     While(ExprNode<A>, Block<A>),
-    For(Rc<VarDecl<A>>, ExprNode<A>, Block<A>),
+    For(Arc<VarDecl<A>>, ExprNode<A>, Block<A>),
     Return(Option<ExprNode<A>>),
     Expr(ExprNode<A>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Item<A: Ast> {
     Comment(String),
-    GlobalVar(Rc<VarDecl<A>>),
-    Fn(Rc<RefCell<FnDecl<A>>>), // TODO(veluca): find a better way.
-    Type(Rc<TypeDecl<A>>),
+    GlobalVar(Arc<VarDecl<A>>),
+    Fn(Arc<RefCell<FnDecl<A>>>), // TODO(veluca): find a better way.
+    Type(Arc<TypeDecl<A>>),
 }
 
 // Declaration of a type alias.
@@ -177,7 +179,7 @@ pub struct TypeDecl<A: Ast> {
     pub ty: TypeNode<A>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block<A: Ast> {
     pub statements: Vec<Node<A, Statement<A>>>,
 }
@@ -192,7 +194,7 @@ pub struct VarDecl<A: Ast> {
 #[derive(Debug)]
 pub struct FnDecl<A: Ast> {
     pub ident: Ident<A>,
-    pub args: Vec<Rc<VarDecl<A>>>,
+    pub args: Vec<Arc<VarDecl<A>>>,
     pub ret: Option<TypeNode<A>>,
     pub body: Block<A>,
 }
