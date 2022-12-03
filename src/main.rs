@@ -33,8 +33,12 @@ fn main() -> Result<()> {
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");
 
-    let ast = parse::parse(&src)?;
-    if let Err(err) = typecheck::typecheck(&ast) {
+    let ast = (|src| {
+        let a = parse::parse(src)?;
+        typecheck::typecheck(&a)?;
+        Ok(a)
+    })(&src);
+    if let Err(err) = ast {
         print_error_with_location(&src, err);
         return Ok(());
     }
