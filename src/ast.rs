@@ -2,13 +2,14 @@ use std::{cell::RefCell, fmt::Debug, sync::Arc};
 
 use crate::error::Error;
 
-pub trait GetNode<T> {
+pub trait AstNode<T> {
     fn get(&self) -> Option<&T>;
+    fn new(val: T) -> Self;
 }
 
 pub trait Ast: Debug + Clone {
-    type NodeWrapper<T: Debug + Clone + GetNode<T>>: Debug + Clone + GetNode<T>;
-    type NodeInfo: Debug + Clone;
+    type NodeWrapper<T: Debug + Clone + AstNode<T>>: Debug + Clone + AstNode<T>;
+    type NodeInfo: Debug + Clone + Default;
 }
 
 #[derive(Debug, Clone)]
@@ -18,17 +19,27 @@ pub struct Ident<A: Ast> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Node<A: Ast, T: Debug + GetNode<T> + Clone> {
+pub struct Node<A: Ast, T: Debug + AstNode<T> + Clone> {
     pub id: usize,
     pub info: A::NodeInfo,
     pub contents: A::NodeWrapper<T>,
 }
 
-impl<A: Ast, T: Debug + GetNode<T> + Clone> Node<A, T> {
+impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
     pub fn get_contents(&self) -> Result<&T, Error<A>> {
         self.contents
             .get()
             .ok_or(Error::MissingNode(self.id, self.info.clone()))
+    }
+    pub fn new_with_defaults(contents: T) -> Node<A, T> {
+        Self::new(contents, 0, A::NodeInfo::default())
+    }
+    pub fn new(contents: T, id: usize, info: A::NodeInfo) -> Node<A, T> {
+        Node {
+            id,
+            info,
+            contents: A::NodeWrapper::<T>::new(contents),
+        }
     }
 }
 
@@ -70,9 +81,18 @@ pub enum Type<A: Ast> {
     Tuple(Vec<TypeNode<A>>),
     NamedTuple(Vec<(Ident<A>, TypeNode<A>)>),
     NamedType(Arc<TypeDecl<A>>),
+    Void, // TODO(veluca): is this the best way to handle non-values?
 }
 
 impl<A: Ast> Type<A> {
+    pub fn canonical_type(&self) -> Result<&Type<A>, Error<A>> {
+        if let Type::NamedType(t) = self {
+            t.ty.get_contents()?.canonical_type()
+        } else {
+            Ok(self)
+        }
+    }
+
     pub fn is_same(&self, other: &Type<A>) -> Result<bool, Error<A>> {
         if let Type::NamedType(t) = self {
             return t.ty.get_contents()?.is_same(other);
@@ -204,32 +224,47 @@ pub struct Program<A: Ast> {
     pub items: Vec<Node<A, Item<A>>>,
 }
 
-impl<A: Ast> GetNode<Type<A>> for Type<A> {
+impl<A: Ast> AstNode<Type<A>> for Type<A> {
     fn get(&self) -> Option<&Type<A>> {
         Some(self)
     }
+    fn new(t: Self) -> Self {
+        t
+    }
 }
 
-impl<A: Ast> GetNode<Expr<A>> for Expr<A> {
+impl<A: Ast> AstNode<Expr<A>> for Expr<A> {
     fn get(&self) -> Option<&Expr<A>> {
         Some(self)
     }
+    fn new(t: Self) -> Self {
+        t
+    }
 }
 
-impl<A: Ast> GetNode<Statement<A>> for Statement<A> {
+impl<A: Ast> AstNode<Statement<A>> for Statement<A> {
     fn get(&self) -> Option<&Statement<A>> {
         Some(self)
     }
-}
-
-impl<A: Ast> GetNode<Item<A>> for Item<A> {
-    fn get(&self) -> Option<&Item<A>> {
-        Some(self)
+    fn new(t: Self) -> Self {
+        t
     }
 }
 
-impl<T: GetNode<T>> GetNode<T> for Option<T> {
+impl<A: Ast> AstNode<Item<A>> for Item<A> {
+    fn get(&self) -> Option<&Item<A>> {
+        Some(self)
+    }
+    fn new(t: Self) -> Self {
+        t
+    }
+}
+
+impl<T: AstNode<T>> AstNode<T> for Option<T> {
     fn get(&self) -> Option<&T> {
         self.as_ref().and_then(|f| f.get())
+    }
+    fn new(t: T) -> Self {
+        Some(t)
     }
 }

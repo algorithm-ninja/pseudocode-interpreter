@@ -30,9 +30,23 @@ pub enum Error<A: Ast> {
     #[error("type error: node {0:?} ({1:?}) has an unexpected type {2:?} (expected: {3:?})")]
     TypeError(usize, A::NodeInfo, Type<A>, Vec<Type<A>>),
     #[error("type error: return statement with a value {0:?} ({1:?}) where none was expected")]
-    ReturnHasValueError(usize, A::NodeInfo),
+    ReturnHasValue(usize, A::NodeInfo),
     #[error("type error: return statement without a value {0:?} ({1:?}) where one was expected")]
-    ReturnNoValueError(usize, A::NodeInfo),
+    ReturnNoValue(usize, A::NodeInfo),
+    #[error("type error: expression {0:?} ({1:?}) cannot be assigned to")]
+    NotAssignable(usize, A::NodeInfo),
+    #[error("type error: expected array at {0:?} ({1:?})")]
+    ExpectedArray(usize, A::NodeInfo),
+    #[error("type error: expected tuple at {0:?} ({1:?})")]
+    ExpectedTuple(usize, A::NodeInfo),
+    #[error("type error: expected named tuple at {0:?} ({1:?})")]
+    ExpectedNamedTuple(usize, A::NodeInfo),
+    #[error("type error: invalid tuple field {2} at {0:?} ({1:?})")]
+    InvalidTupleField(usize, A::NodeInfo, usize),
+    #[error("type error: invalid tuple field {2} at {0:?} ({1:?})")]
+    InvalidNamedTupleField(usize, A::NodeInfo, String),
+    #[error("type error: invalid number of arguments when calling {2:?} at {0:?} ({1:?})")]
+    WrongArgumentNumber(usize, A::NodeInfo, Ident<A>),
 }
 
 impl<A: Ast> Error<A> {
@@ -49,8 +63,15 @@ impl<A: Ast> Error<A> {
             Error::DuplicateType(Ident { name: _, info: n }, _) => n,
             Error::MissingNode(_, n) => n,
             Error::TypeError(_, n, _, _) => n,
-            Error::ReturnNoValueError(_, n) => n,
-            Error::ReturnHasValueError(_, n) => n,
+            Error::ReturnNoValue(_, n) => n,
+            Error::ReturnHasValue(_, n) => n,
+            Error::NotAssignable(_, n) => n,
+            Error::ExpectedArray(_, n) => n,
+            Error::ExpectedTuple(_, n) => n,
+            Error::ExpectedNamedTuple(_, n) => n,
+            Error::InvalidTupleField(_, n, _) => n,
+            Error::InvalidNamedTupleField(_, n, _) => n,
+            Error::WrongArgumentNumber(_, n, _) => n,
         }
         .clone()
     }

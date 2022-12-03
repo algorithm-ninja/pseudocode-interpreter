@@ -8,7 +8,7 @@ pub use crate::error::Error;
 pub struct TextAst;
 
 impl Ast for TextAst {
-    type NodeWrapper<T: Debug + GetNode<T> + Clone> = T;
+    type NodeWrapper<T: Debug + AstNode<T> + Clone> = T;
     type NodeInfo = Range<usize>;
 }
 

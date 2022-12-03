@@ -253,7 +253,7 @@ impl<'a> ParserState<'a> {
         id
     }
 
-    pub fn end_node<T: Debug + GetNode<T> + Clone>(
+    pub fn end_node<T: Debug + AstNode<T> + Clone>(
         &mut self,
         id: usize,
         contents: T,
