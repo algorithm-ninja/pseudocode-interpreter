@@ -29,9 +29,18 @@ fn parse_expr_with_precedence(
         (Token::IntegerLit, _, _) => Expr::Integer(parser_state.integer_lit()?),
         (Token::FloatLit, _, _) => Expr::Float(parser_state.float_lit()?),
         (Token::StringLit, _, s) => {
-            let s = s.to_owned();
+            let mut val = String::with_capacity(s.len());
+            let mut escaped = false;
+            for c in s[1..s.len() - 1].chars() {
+                if escaped || c != '\\' {
+                    val.push(c);
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                }
+            }
             parser_state.require(Token::StringLit)?;
-            Expr::String(s) // TODO escaping
+            Expr::String(val)
         }
         (Token::True, _, _) => {
             parser_state.require(Token::True)?;
