@@ -28,6 +28,7 @@ pub struct ProgramState<'a, A: Ast> {
     evaluated_expression_lvalues: HashMap<ByAddress<&'a Node<A, Expr<A>>>, LValue>,
     evaluated_expression_rvalues: HashMap<ByAddress<&'a Node<A, Expr<A>>>, RValue<'a, A>>,
     eval_stack: Vector<EvalStackElement<'a, A>>,
+    stdout: Vector<String>,
 }
 
 pub type Result<T, A> = std::result::Result<T, Error<A>>;
@@ -48,5 +49,9 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     /// yet done, and its return value if it is.
     pub fn eval_step(&mut self) -> Result<Option<LValue>, A> {
         todo!()
+    }
+
+    pub fn stdout(&self) -> &Vector<String> {
+        &self.stdout
     }
 }

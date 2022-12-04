@@ -41,6 +41,10 @@ fn main() -> Result<()> {
             let mut state = ProgramState::new(&a);
             state.evaluate_fun("main", &[])?;
             while state.eval_step()?.is_none() {}
+
+            for line in state.stdout() {
+                println!("{line}");
+            }
         }
         Ok(())
     })(&src);
