@@ -3,6 +3,7 @@ use super::lexer::*;
 use std::{cell::RefCell, collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
 
 use logos::Logos;
+use ordered_float::NotNan;
 
 #[derive(Debug)]
 struct ScopeState {
@@ -116,7 +117,7 @@ impl<'a> ParserState<'a> {
             .map_err(|_| Error::ParseError(vec![Token::IntegerLit], s.to_owned(), r.clone()))
     }
 
-    pub fn float_lit(&mut self) -> Result<f64> {
+    pub fn float_lit(&mut self) -> Result<NotNan<f64>> {
         let (r, s) = self.require(Token::FloatLit)?;
         s.parse()
             .map_err(|_| Error::ParseError(vec![Token::IntegerLit], s.to_owned(), r.clone()))
@@ -329,6 +330,10 @@ pub fn parse_comma_separated<T, F>(
 where
     F: Fn(&mut ParserState) -> Result<T>,
 {
+    if parser_state.peek()?.0 == closing_delim {
+        parser_state.require(closing_delim)?;
+        return Ok((vec![], false));
+    }
     let mut exprs = vec![];
     let mut has_comma = false;
     loop {

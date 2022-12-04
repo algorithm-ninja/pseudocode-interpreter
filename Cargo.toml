@@ -8,10 +8,13 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.66"
+by_address = "1.1.0"
 clap = "3.2"
 clap_derive = "3.2"
+im = "15.1.0"
 itertools = "0.10.5"
 logos = "0.12.1"
+ordered-float = "3.4.0"
 thiserror = "1.0.37"
 
 

@@ -1,5 +1,7 @@
 use std::{cell::RefCell, fmt::Debug, sync::Arc};
 
+use ordered_float::NotNan;
+
 use crate::error::Error;
 
 pub trait AstNode<T> {
@@ -152,7 +154,7 @@ type ExprNode<A> = Node<A, Expr<A>>;
 pub enum Expr<A: Ast> {
     Ref(Arc<VarDecl<A>>),
     Integer(i64),
-    Float(f64),
+    Float(NotNan<f64>),
     String(String),
     Bool(bool),
     Array(Vec<ExprNode<A>>),

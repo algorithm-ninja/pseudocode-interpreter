@@ -23,3 +23,8 @@ function f(a: integer) -> integer
   end while
   return a + b[1] + c * 2
 end function
+
+
+function main()
+  output(f(10))
+end function

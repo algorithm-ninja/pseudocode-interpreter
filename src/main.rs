@@ -1,5 +1,6 @@
 use clap::Parser;
 use clap_derive::Parser;
+use pseudocode_interpreter::eval::ProgramState;
 use std::fs::File;
 use std::io::Read;
 
@@ -36,8 +37,14 @@ fn main() -> Result<()> {
     let ast = (|src| {
         let a = parse::parse(src)?;
         typecheck::typecheck(&a)?;
-        Ok(a)
+        {
+            let mut state = ProgramState::new(&a);
+            state.evaluate_fun("main", &[])?;
+            while state.eval_step()?.is_none() {}
+        }
+        Ok(())
     })(&src);
+
     if let Err(err) = ast {
         print_error_with_location(&src, err);
         return Ok(());
