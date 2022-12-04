@@ -2,7 +2,7 @@ use by_address::ByAddress;
 use im::{HashMap, Vector};
 
 use crate::{
-    ast::{Ast, Block, Expr, Node, Program, VarDecl},
+    ast::{Ast, Block, Expr, Node, Program, Type, VarDecl},
     error::Error,
     value::{LValue, RValue},
 };
@@ -41,7 +41,12 @@ impl<'a, A: Ast> ProgramState<'a, A> {
 
     /// Starts evaluation of the given function on the given arguments. Will error out if already
     /// evaluating a function.
-    pub fn evaluate_fun(&mut self, fun: &str, args: &[LValue]) -> Result<(), A> {
+    pub fn evaluate_fun(
+        &mut self,
+        fun: &str,
+        args: &[LValue],
+        ret_type: &Type<A>,
+    ) -> Result<(), A> {
         todo!()
     }
 

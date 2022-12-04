@@ -1,6 +1,7 @@
 use clap::Parser;
 use clap_derive::Parser;
 use pseudocode_interpreter::eval::ProgramState;
+use pseudocode_interpreter::value::LValue;
 use std::fs::File;
 use std::io::Read;
 
@@ -39,8 +40,14 @@ fn main() -> Result<()> {
         typecheck::typecheck(&a)?;
         {
             let mut state = ProgramState::new(&a);
-            state.evaluate_fun("main", &[])?;
-            while state.eval_step()?.is_none() {}
+            state.evaluate_fun("main", &[], &pseudocode_interpreter::ast::Type::Void)?;
+            let ret = loop {
+                if let Some(ret) = state.eval_step()? {
+                    break ret;
+                }
+            };
+
+            assert!(ret == LValue::Void);
 
             for line in state.stdout() {
                 println!("{line}");
