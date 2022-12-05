@@ -51,15 +51,14 @@ Return: Option<Expr> = {
 };
 
 Expr: Expr = {
-  BooleanExpr,
 	ArithmeticExpr,
-	ComparisonExpr,
+  	BooleanExpr,
 };
 
 BooleanExpr: Expr = {
-	<l:BooleanExpr> <op:BooleanOp> <r:ValuedExpr> => Expr::Op(Box::new(l), op, Box::new(r)),
-	<l:BooleanExpr> <op:BooleanOp> <r:Negation> => Expr::Op(Box::new(l), op, Box::new(r)),
-	Negation,
+	ComparisonExpr,
+	<l:BooleanExpr> <op:BooleanOp> <r:ComparisonExpr> => Expr::Op(Box::new(l), op, Box::new(r)),
+	"(" <l:BooleanExpr> <op:BooleanOp> <r:ComparisonExpr> ")" => Expr::Op(Box::new(l), op, Box::new(r)),
 }
 
 ValuedExpr: Expr = {
@@ -68,7 +67,9 @@ ValuedExpr: Expr = {
 }
 
 ComparisonExpr: Expr = {
+	"(" <ce:ComparisonExpr> ")" => ce,
 	<l:ArithmeticExpr> <op:CompareOp> <r:ArithmeticExpr> => Expr::Op(Box::new(l), op, Box::new(r)),
+	Negation,
 }
 
 ArithmeticExpr: Expr = {
@@ -77,8 +78,8 @@ ArithmeticExpr: Expr = {
 };
 
 Factor: Expr = {
-	<l:Factor> <op:MulOp> <r:Term> => Expr::Op(Box::new(l), op, Box::new(r)),
-	Term,
+	<l:Factor> <op:MulOp> <r:ArithmeticTerm> => Expr::Op(Box::new(l), op, Box::new(r)),
+	ArithmeticTerm,
 	Literal,
 };
 
@@ -107,11 +108,11 @@ VarDeclList: Vec<Decl> = {
 	}
 }
 
-Term: Expr = {
+ArithmeticTerm: Expr = {
 	Ident => Expr::Ref(<>),
 	ExprTuple => Expr::Tuple(<>),
-	"(" <e:Expr> ")" => Expr::Parens(Box::new(e)),
-	<t:Term> "[" <e:Expr> "]" => Expr::ArrayIndex(Box::new(t), Box::new(e)),
+	"(" <e:ArithmeticExpr> ")" => Expr::Parens(Box::new(e)),
+	<i:Ident> "[" <e:ArithmeticExpr> "]" => Expr::ArrayIndex(Box::new(Expr::Ref(i)), Box::new(e)),
 	<f:Ident> "(" <a:ArgList> ")" => Expr::FunctionCall(f, a),
 };
 
@@ -189,9 +190,9 @@ CompareOp: Op = {
 };
 
 BooleanOp: Op = {
-  "and" => Op::And,
+  	"and" => Op::And,
 	"AND" => Op::And,
-  "or" => Op::Or,
+  	"or" => Op::Or,
 	"OR" => Op::Or,
 };
 
