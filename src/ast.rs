@@ -1,4 +1,7 @@
-use std::{cell::RefCell, fmt::Debug, sync::Arc};
+use std::{
+    fmt::Debug,
+    sync::{Arc, Weak},
+};
 
 use ordered_float::NotNan;
 
@@ -33,9 +36,15 @@ impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
             .get()
             .ok_or(Error::MissingNode(self.id, self.info.clone()))
     }
+
+    pub fn unwrap(&self) -> &T {
+        self.contents.get().unwrap()
+    }
+
     pub fn new_with_defaults(contents: T) -> Node<A, T> {
         Self::new(contents, 0, A::NodeInfo::default())
     }
+
     pub fn new(contents: T, id: usize, info: A::NodeInfo) -> Node<A, T> {
         Node {
             id,
@@ -82,25 +91,25 @@ pub enum Type<A: Ast> {
     Map(Box<TypeNode<A>>, Box<TypeNode<A>>),
     Tuple(Vec<TypeNode<A>>),
     NamedTuple(Vec<(Ident<A>, TypeNode<A>)>),
-    NamedType(Arc<TypeDecl<A>>),
+    NamedType(Weak<TypeDecl<A>>),
     Void, // TODO(veluca): is this the best way to handle non-values?
 }
 
 impl<A: Ast> Type<A> {
-    pub fn canonical_type(&self) -> Result<&Type<A>, Error<A>> {
+    pub fn canonical_type(&self) -> Result<Type<A>, Error<A>> {
         if let Type::NamedType(t) = self {
-            t.ty.get_contents()?.canonical_type()
+            t.upgrade().unwrap().ty.get_contents()?.canonical_type()
         } else {
-            Ok(self)
+            Ok(self.clone())
         }
     }
 
     pub fn is_same(&self, other: &Type<A>) -> Result<bool, Error<A>> {
         if let Type::NamedType(t) = self {
-            return t.ty.get_contents()?.is_same(other);
+            return t.upgrade().unwrap().ty.get_contents()?.is_same(other);
         }
         if let Type::NamedType(t) = other {
-            return t.ty.get_contents()?.is_same(self);
+            return t.upgrade().unwrap().ty.get_contents()?.is_same(self);
         }
         match (self, other) {
             (Type::Integer, Type::Integer) => Ok(true),
@@ -143,6 +152,7 @@ impl<A: Ast> Type<A> {
                     })
                     .try_fold(true, |b, r| Ok(b && r?))
             }
+            (Type::Void, Type::Void) => Ok(true),
             _ => Ok(false),
         }
     }
@@ -152,7 +162,7 @@ type ExprNode<A> = Node<A, Expr<A>>;
 
 #[derive(Debug, Clone)]
 pub enum Expr<A: Ast> {
-    Ref(Arc<VarDecl<A>>),
+    Ref(Weak<VarDecl<A>>),
     Integer(i64),
     Float(NotNan<f64>),
     String(String),
@@ -167,7 +177,7 @@ pub enum Expr<A: Ast> {
     BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),
     Not(Box<ExprNode<A>>),
     ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
-    FunctionCall(Arc<RefCell<FnDecl<A>>>, Vec<ExprNode<A>>),
+    FunctionCall(Weak<FnDecl<A>>, Vec<ExprNode<A>>),
     MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),
     Output(Box<ExprNode<A>>),
     TupleField(Box<ExprNode<A>>, usize),
@@ -190,12 +200,12 @@ pub enum Statement<A: Ast> {
 pub enum Item<A: Ast> {
     Comment(String),
     GlobalVar(Arc<VarDecl<A>>),
-    Fn(Arc<RefCell<FnDecl<A>>>), // TODO(veluca): find a better way.
+    Fn(Arc<FnDecl<A>>),
     Type(Arc<TypeDecl<A>>),
 }
 
 // Declaration of a type alias.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypeDecl<A: Ast> {
     pub ident: Ident<A>,
     pub ty: TypeNode<A>,
@@ -206,14 +216,14 @@ pub struct Block<A: Ast> {
     pub statements: Vec<Node<A, Statement<A>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VarDecl<A: Ast> {
     pub ident: Ident<A>,
     pub ty: TypeNode<A>,
     pub val: Option<ExprNode<A>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnDecl<A: Ast> {
     pub ident: Ident<A>,
     pub args: Vec<Arc<VarDecl<A>>>,

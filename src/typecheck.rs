@@ -66,7 +66,7 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
     };
 
     let ty = match expr.get_contents()? {
-        Expr::Ref(var) => var.ty.get_contents()?.clone(),
+        Expr::Ref(var) => var.upgrade().unwrap().ty.get_contents()?.clone(),
         Expr::Integer(_) => {
             check_is_lvalue()?;
             Type::Integer
@@ -172,17 +172,17 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
             todo!()
         }
         Expr::FunctionCall(f, args) => {
-            if args.len() != f.borrow().args.len() {
+            if args.len() != f.upgrade().unwrap().args.len() {
                 return Err(Error::WrongArgumentNumber(
                     expr.id,
                     expr.info.clone(),
-                    f.borrow().ident.clone(),
+                    f.upgrade().unwrap().ident.clone(),
                 ));
             }
-            for (expr, def) in args.iter().zip(f.borrow().args.iter()) {
+            for (expr, def) in args.iter().zip(f.upgrade().unwrap().args.iter()) {
                 check_expr_has_type(def.ty.get_contents()?, expr)?;
             }
-            if let Some(t) = &f.borrow().ret {
+            if let Some(t) = &f.upgrade().unwrap().ret {
                 t.get_contents()?.clone()
             } else {
                 Type::Void
@@ -280,7 +280,6 @@ fn typecheck_item<A: Ast>(item: &Item<A>) -> Result<(), A> {
             }
         }
         Item::Fn(f) => {
-            let f = f.borrow();
             for stmt in f.body.statements.iter() {
                 typecheck_statement(
                     stmt,

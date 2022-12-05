@@ -69,7 +69,7 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
         }
     }
 
-    parser_state.finalize()?;
+    parser_state.finalize(&mut out)?;
 
     Ok(out)
 }

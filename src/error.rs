@@ -47,6 +47,10 @@ pub enum Error<A: Ast> {
     InvalidNamedTupleField(usize, A::NodeInfo, String),
     #[error("type error: invalid number of arguments when calling {2:?} at {0:?} ({1:?})")]
     WrongArgumentNumber(usize, A::NodeInfo, Ident<A>),
+    #[error("runtime error: function call did not return at {0:?} ({1:?})")]
+    DidNotReturn(usize, A::NodeInfo),
+    #[error("runtime error: array out of bounds at {0:?} ({1:?}) - index is {2}, len is {3}")]
+    ArrayOutOfBounds(usize, A::NodeInfo, i64, usize),
 }
 
 impl<A: Ast> Error<A> {
@@ -72,6 +76,8 @@ impl<A: Ast> Error<A> {
             Error::InvalidTupleField(_, n, _) => n,
             Error::InvalidNamedTupleField(_, n, _) => n,
             Error::WrongArgumentNumber(_, n, _) => n,
+            Error::DidNotReturn(_, n) => n,
+            Error::ArrayOutOfBounds(_, n, _, _) => n,
         }
         .clone()
     }

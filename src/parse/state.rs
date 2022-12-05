@@ -1,6 +1,7 @@
 use super::common::*;
 use super::lexer::*;
-use std::{cell::RefCell, collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
+use std::sync::Weak;
+use std::{collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
 
 use logos::Logos;
 use ordered_float::NotNan;
@@ -9,7 +10,7 @@ use ordered_float::NotNan;
 struct ScopeState {
     types: HashMap<String, Arc<TypeDecl<TextAst>>>,
     variables: HashMap<String, Arc<VarDecl<TextAst>>>,
-    functions: HashMap<String, Arc<RefCell<FnDecl<TextAst>>>>,
+    functions: HashMap<String, Arc<FnDecl<TextAst>>>,
 }
 
 #[derive(Debug)]
@@ -38,7 +39,7 @@ pub struct ParserState<'a> {
     scope_state: Vec<ScopeState>,
     node_state: Vec<NodeState>,
     // All functions that are not yet fully defined.
-    unknown_functions: HashMap<String, Arc<RefCell<FnDecl<TextAst>>>>,
+    unknown_functions: HashMap<String, Arc<FnDecl<TextAst>>>,
 }
 
 impl<'a> ParserState<'a> {
@@ -141,50 +142,45 @@ impl<'a> ParserState<'a> {
             .expect("Programming error: closing a scope while none are open");
     }
 
-    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> Arc<RefCell<FnDecl<TextAst>>> {
+    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> Weak<FnDecl<TextAst>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.functions.get(&ident.name) {
-                return x.clone();
+                return Arc::downgrade(x);
             }
         }
         if let Some(x) = self.unknown_functions.get(&ident.name) {
-            return x.clone();
+            return Arc::downgrade(x);
         }
-        let fd = Arc::new(RefCell::new(FnDecl {
+        let fd = Arc::new(FnDecl {
             ident: ident.clone(),
             args: vec![],
             body: Block { statements: vec![] },
             ret: None,
-        }));
-        self.unknown_functions.insert(ident.name, fd.clone());
-        fd
+        });
+        let ret = Arc::downgrade(&fd);
+        self.unknown_functions.insert(ident.name, fd);
+        ret
     }
 
-    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<Arc<RefCell<FnDecl<TextAst>>>> {
+    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<Arc<FnDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
             return Err(Error::DuplicateFunction(
                 decl.ident.clone(),
-                prev.borrow().ident.clone(),
+                prev.ident.clone(),
             ));
         }
 
         let name = decl.ident.name.clone();
-        let decl = if self.unknown_functions.contains_key(&decl.ident.name) {
-            *self.unknown_functions.get_mut(&name).unwrap().borrow_mut() = decl;
-            self.unknown_functions.remove(&name).unwrap()
-        } else {
-            Arc::new(RefCell::new(decl))
-        };
-        scope.functions.insert(name.clone(), decl);
+        scope.functions.insert(name.clone(), Arc::new(decl));
         Ok(scope.functions.get(&name).unwrap().clone())
     }
 
-    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<Arc<VarDecl<TextAst>>> {
+    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<Weak<VarDecl<TextAst>>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.variables.get(&ident.name) {
-                return Ok(x.clone());
+                return Ok(Arc::downgrade(x));
             }
         }
         Err(Error::UnrecognizedVariable(ident))
@@ -193,10 +189,10 @@ impl<'a> ParserState<'a> {
     pub fn add_var(&mut self, decl: Arc<VarDecl<TextAst>>) -> Result<Arc<VarDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
-        if let Some(prev) = scope.functions.get(&decl.ident.name) {
+        if let Some(prev) = scope.variables.get(&decl.ident.name) {
             return Err(Error::DuplicateVariable(
                 decl.ident.clone(),
-                prev.borrow().ident.clone(),
+                prev.ident.clone(),
             ));
         }
         let name = decl.ident.name.clone();
@@ -204,10 +200,10 @@ impl<'a> ParserState<'a> {
         Ok(scope.variables.get(&name).unwrap().clone())
     }
 
-    pub fn find_type(&mut self, ident: Ident<TextAst>) -> Result<Arc<TypeDecl<TextAst>>> {
+    pub fn find_type(&mut self, ident: Ident<TextAst>) -> Result<Weak<TypeDecl<TextAst>>> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.types.get(&ident.name) {
-                return Ok(x.clone());
+                return Ok(Arc::downgrade(x));
             }
         }
         Err(Error::UnrecognizedType(ident))
@@ -216,11 +212,8 @@ impl<'a> ParserState<'a> {
     pub fn add_type(&mut self, decl: TypeDecl<TextAst>) -> Result<Arc<TypeDecl<TextAst>>> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
-        if let Some(prev) = scope.functions.get(&decl.ident.name) {
-            return Err(Error::DuplicateType(
-                decl.ident.clone(),
-                prev.borrow().ident.clone(),
-            ));
+        if let Some(prev) = scope.types.get(&decl.ident.name) {
+            return Err(Error::DuplicateType(decl.ident.clone(), prev.ident.clone()));
         }
         let name = decl.ident.name.clone();
         scope.types.insert(name.clone(), Arc::new(decl));
@@ -305,7 +298,7 @@ impl<'a> ParserState<'a> {
         self.node_state.push(node);
     }
 
-    pub fn finalize(&self) -> Result<()> {
+    pub fn finalize(&self, _program: &mut Program<TextAst>) -> Result<()> {
         assert!(
             self.node_state.is_empty(),
             "Programming error: some nodes were never closed"
@@ -315,8 +308,10 @@ impl<'a> ParserState<'a> {
             "Programming error: some scopes were never closed"
         );
 
+        // TODO(veluca): implement recursion by fixing up the AST, or changing its representation
+        // for variables/functions.
         if let Some((_, f)) = self.unknown_functions.iter().next() {
-            return Err(Error::UnrecognizedFunction(f.borrow().ident.clone()));
+            return Err(Error::UnrecognizedFunction(f.ident.clone()));
         }
         Ok(())
     }
