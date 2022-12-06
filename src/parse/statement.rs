@@ -88,10 +88,16 @@ pub fn parse_block(
                 let id = parser_state.start_node();
                 parser_state.require(Token::For)?;
                 let ident = parser_state.ident()?;
-                parser_state.require(Token::Colon)?;
+                let ty = if parser_state.peek()?.0 == Token::In {
+                    let id = parser_state.start_node();
+                    parser_state.end_node(id, Type::Integer)
+                } else {
+                    parser_state.require(Token::Colon)?;
+                    parse_type(parser_state)?
+                };
                 let var = VarDecl {
                     ident,
-                    ty: parse_type(parser_state)?,
+                    ty,
                     val: None,
                 };
                 parser_state.require(Token::In)?;
