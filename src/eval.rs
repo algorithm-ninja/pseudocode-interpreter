@@ -111,6 +111,109 @@ macro_rules! el {
 }
 
 impl<'a, A: Ast> ProgramState<'a, A> {
+    fn start_block(&mut self, blk: &'a Block<A>, vars: &[VarIndex], values: &[LValue]) {
+        assert!(vars.len() == values.len());
+        self.eval_stack
+            .push_back(EvalStackElement::Statement(&blk, 0));
+        self.local_variables.push_back(Scope {
+            variables: vars
+                .iter()
+                .zip(values.iter())
+                .map(|(v, val)| (*v, val.clone()))
+                .collect(),
+        });
+        self.statement_stack.push_back(StatementStack::new());
+    }
+
+    fn finish_block(&mut self) {
+        assert!(matches!(
+            self.eval_stack.back(),
+            Some(EvalStackElement::Statement(_, _))
+        ));
+        self.eval_stack.pop_back();
+        self.local_variables.pop_back();
+        self.statement_stack.pop_back();
+    }
+
+    fn finish_lvalue_eval(&mut self, lvalue: LValue) {
+        assert!(matches!(
+            self.eval_stack.back(),
+            Some(EvalStackElement::ExprLValue(_))
+        ));
+        if let Some(EvalStackElement::ExprLValue(expr)) = self.eval_stack.pop_back() {
+            self.statement_stack
+                .back_mut()
+                .unwrap()
+                .evaluated_expression_lvalues
+                .insert(ByAddress(expr), lvalue);
+        }
+    }
+
+    fn finish_rvalue_eval(&mut self, rvalue: RValue) {
+        assert!(matches!(
+            self.eval_stack.back(),
+            Some(EvalStackElement::ExprRValue(_))
+        ));
+        if let Some(EvalStackElement::ExprRValue(expr)) = self.eval_stack.pop_back() {
+            self.statement_stack
+                .back_mut()
+                .unwrap()
+                .evaluated_expression_rvalues
+                .insert(ByAddress(expr), rvalue);
+        }
+    }
+
+    fn check_callee(&mut self, lvalue: LValue) -> Result<Option<LValue>, A> {
+        if self.eval_stack.is_empty() {
+            return Ok(Some(lvalue));
+        }
+        let back = self.eval_stack.back_mut().unwrap();
+        if let EvalStackElement::ExprLValue(expr) = back {
+            if let Expr::FunctionCall(f, _) = expr.unwrap() {
+                if self.program.fun(*f).ret.is_some() && lvalue == LValue::Void {
+                    return Err(Error::DidNotReturn(expr.id, expr.info.clone()));
+                }
+                self.finish_lvalue_eval(lvalue);
+            }
+        }
+        Ok(None)
+    }
+
+    fn next_loop_iter(&mut self, len: usize) -> Option<usize> {
+        let lp = &mut self.statement_stack.back_mut().unwrap().loop_pos;
+        let next = *lp;
+        if next < len {
+            *lp += 1;
+            Some(next)
+        } else {
+            None
+        }
+    }
+
+    fn clear_statement(&mut self) {
+        self.statement_stack.pop_back();
+        self.statement_stack.push_back(StatementStack::new());
+    }
+
+    fn next_statement(&mut self) {
+        if let EvalStackElement::Statement(_, ref mut pos) = self.eval_stack.back_mut().unwrap() {
+            *pos += 1;
+            self.clear_statement();
+        }
+    }
+
+    fn get_variable(&mut self, var: &VarIndex) -> &mut LValue {
+        if let Some(x) = self.global_variables.variables.get_mut(var) {
+            x
+        } else {
+            self.local_variables
+                .iter_mut()
+                .rev()
+                .find_map(|x| x.variables.get_mut(var))
+                .unwrap()
+        }
+    }
+
     /// Starts a program from scratch, inizializing global variables to their default values.
     pub fn new(program: &'a Program<A>) -> ProgramState<'a, A> {
         let mut vars = HashMap::new();
@@ -176,70 +279,11 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     /// yet done, and its return value if it is.
     pub fn eval_step(&mut self) -> Result<Option<LValue>, A> {
         assert!(!self.eval_stack.is_empty());
-        /*
-        println!("{:?}", self.eval_stack);
-        println!("{:?}", self.statement_stack);
-        println!("{:?}", self.local_variables);
-        */
         match self.eval_stack.back().unwrap() {
             EvalStackElement::Statement(blk, pos) => self.eval_block_pos(blk, *pos),
             EvalStackElement::ExprLValue(expr) => self.eval_lvalue(expr),
             EvalStackElement::ExprRValue(expr) => self.eval_rvalue(expr),
         }
-    }
-
-    fn start_block(&mut self, blk: &'a Block<A>, vars: &[VarIndex], values: &[LValue]) {
-        assert!(vars.len() == values.len());
-        self.eval_stack
-            .push_back(EvalStackElement::Statement(&blk, 0));
-        self.local_variables.push_back(Scope {
-            variables: vars
-                .iter()
-                .zip(values.iter())
-                .map(|(v, val)| (*v, val.clone()))
-                .collect(),
-        });
-        self.statement_stack.push_back(StatementStack::new());
-    }
-
-    fn finish_block(&mut self) {
-        assert!(matches!(
-            self.eval_stack.back(),
-            Some(EvalStackElement::Statement(_, _))
-        ));
-        self.eval_stack.pop_back();
-        self.local_variables.pop_back();
-        self.statement_stack.pop_back();
-    }
-
-    fn finish_lvalue_eval(&mut self, lvalue: LValue) {
-        assert!(matches!(
-            self.eval_stack.back(),
-            Some(EvalStackElement::ExprLValue(_))
-        ));
-        if let Some(EvalStackElement::ExprLValue(expr)) = self.eval_stack.pop_back() {
-            self.statement_stack
-                .back_mut()
-                .unwrap()
-                .evaluated_expression_lvalues
-                .insert(ByAddress(expr), lvalue);
-        }
-    }
-
-    fn check_callee(&mut self, lvalue: LValue) -> Result<Option<LValue>, A> {
-        if self.eval_stack.is_empty() {
-            return Ok(Some(lvalue));
-        }
-        let back = self.eval_stack.back_mut().unwrap();
-        if let EvalStackElement::ExprLValue(expr) = back {
-            if let Expr::FunctionCall(f, _) = expr.unwrap() {
-                if self.program.fun(*f).ret.is_some() && lvalue == LValue::Void {
-                    return Err(Error::DidNotReturn(expr.id, expr.info.clone()));
-                }
-                self.finish_lvalue_eval(lvalue);
-            }
-        }
-        Ok(None)
     }
 
     fn eval_block_pos(&mut self, blk: &'a Block<A>, pos: usize) -> Result<Option<LValue>, A> {
@@ -249,13 +293,6 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         }
         let (id, info) = (blk.statements[pos].id, blk.statements[pos].info.clone());
 
-        let statement_done = |s: &mut Self| {
-            if let EvalStackElement::Statement(_, ref mut pos) = s.eval_stack.back_mut().unwrap() {
-                s.statement_stack.pop_back();
-                *pos += 1;
-                s.statement_stack.push_back(StatementStack::new());
-            }
-        };
         match blk.statements[pos].unwrap() {
             Statement::Comment(_) => {}
             Statement::Decl(v) => {
@@ -274,16 +311,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             Statement::Assign(to, expr) => {
                 let val = el!(self, expr);
                 let dest = er!(self, to);
-                let mut current_value =
-                    if let Some(x) = self.global_variables.variables.get_mut(&dest.vardecl) {
-                        x
-                    } else {
-                        self.local_variables
-                            .iter_mut()
-                            .rev()
-                            .find_map(|x| x.variables.get_mut(&dest.vardecl))
-                            .unwrap()
-                    };
+                let mut current_value = self.get_variable(&dest.vardecl);
                 for idx in dest.indices.iter().rev() {
                     match (idx, current_value) {
                         (LValue::Integer(x), LValue::Array(arr)) => {
@@ -308,7 +336,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 let cond = el!(self, expr);
                 // We are done with this statement. Clear the eval state and ensure that next
                 // call to eval_step starts from the following statement.
-                statement_done(self);
+                self.next_statement();
                 if let LValue::Bool(c) = cond {
                     if c {
                         self.start_block(blk1, &[], &[]);
@@ -324,8 +352,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             Statement::While(expr, blk) => {
                 let cond = el!(self, expr);
                 // Clear evaluation of this expression, so that it gets re-evaluated next time.
-                self.statement_stack.pop_back();
-                self.statement_stack.push_back(StatementStack::new());
+                self.clear_statement();
                 if let LValue::Bool(c) = cond {
                     if c {
                         self.start_block(blk, &[], &[]);
@@ -339,9 +366,8 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 let arr = el!(self, expr);
 
                 if let LValue::Array(a) = arr {
-                    if self.statement_stack.back().unwrap().loop_pos < a.len() {
-                        let val = a[self.statement_stack.back().unwrap().loop_pos].clone();
-                        self.statement_stack.back_mut().unwrap().loop_pos += 1;
+                    if let Some(idx) = self.next_loop_iter(a.len()) {
+                        let val = a[idx].clone();
                         self.start_block(blk, &[*var], &[val]);
                         return Ok(None);
                     }
@@ -368,25 +394,15 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 return self.check_callee(rval);
             }
         }
-        statement_done(self);
+        self.next_statement();
         Ok(None)
     }
 
     fn eval_lvalue(&mut self, expr: &'a Node<A, Expr<A>>) -> Result<Option<LValue>, A> {
         let (id, info) = (expr.id, expr.info.clone());
+
         let val = match expr.unwrap() {
-            Expr::Ref(var) => {
-                if let Some(x) = self.global_variables.variables.get(var) {
-                    x.clone()
-                } else {
-                    self.local_variables
-                        .iter()
-                        .rev()
-                        .find_map(|x| x.variables.get(var))
-                        .unwrap()
-                        .clone()
-                }
-            }
+            Expr::Ref(var) => self.get_variable(var).clone(),
             Expr::Integer(i) => LValue::Integer(*i),
             Expr::Float(i) => LValue::Float(*i),
             Expr::Bool(i) => LValue::Bool(*i),
@@ -570,7 +586,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     }
 
     fn eval_rvalue(&mut self, expr: &'a Node<A, Expr<A>>) -> Result<Option<LValue>, A> {
-        let rval = match expr.unwrap() {
+        let rvalue = match expr.unwrap() {
             Expr::Ref(var) => RValue {
                 vardecl: *var,
                 indices: Vector::new(),
@@ -596,12 +612,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             Expr::NamedTuple(_) => todo!(),
             _ => unreachable!(),
         };
-        self.statement_stack
-            .back_mut()
-            .unwrap()
-            .evaluated_expression_rvalues
-            .insert(ByAddress(expr), rval);
-        self.eval_stack.pop_back();
+        self.finish_rvalue_eval(rvalue);
         Ok(None)
     }
 
