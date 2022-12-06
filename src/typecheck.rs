@@ -26,7 +26,7 @@ fn expect_type<A: Ast, NT: Debug + AstNode<NT> + Clone>(
         node.id,
         node.info.clone(),
         node_type.clone(),
-        types.into_iter().cloned().cloned().collect(),
+        types.iter().cloned().cloned().collect(),
     ))
 }
 
@@ -36,7 +36,7 @@ fn check_expr_has_type<A: Ast>(
     from: &Node<A, Expr<A>>,
 ) -> Result<(), A> {
     let ty = typecheck_expr(program, from, ValueType::LValue)?;
-    expect_type(&vec![to_type], from, &ty)
+    expect_type(&[to_type], from, &ty)
 }
 
 fn typecheck_expr<A: Ast>(
@@ -50,7 +50,8 @@ fn typecheck_expr<A: Ast>(
         }
         Ok(())
     };
-    let get_same_type = |exprs: &Vec<Node<A, Expr<A>>>| {
+    type ExprNode<A> = Node<A, Expr<A>>;
+    let get_same_type = |exprs: &Vec<ExprNode<A>>| {
         if exprs.is_empty() {
             todo!(); // Figure out what to do here
         }
@@ -60,7 +61,7 @@ fn typecheck_expr<A: Ast>(
         }
         Ok(ty1)
     };
-    let get_same_types = |exprs: &Vec<(Node<A, Expr<A>>, Node<A, Expr<A>>)>| {
+    let get_same_types = |exprs: &Vec<(ExprNode<A>, ExprNode<A>)>| {
         if exprs.is_empty() {
             todo!(); // Figure out what to do here
         }
@@ -209,7 +210,7 @@ fn typecheck_expr<A: Ast>(
         }
         Expr::NamedTupleField(expr, name) => {
             if let Type::NamedTuple(inner) = typecheck_expr(program, expr, value_type)? {
-                if let Some(x) = inner.iter().filter(|x| x.0.name == name.name).next() {
+                if let Some(x) = inner.iter().find(|x| x.0.name == name.name) {
                     x.1.get_contents()?.clone()
                 } else {
                     return Err(Error::InvalidNamedTupleField(
@@ -223,7 +224,7 @@ fn typecheck_expr<A: Ast>(
             }
         }
     };
-    Ok(ty.canonical_type()?.clone())
+    ty.canonical_type()
 }
 
 fn typecheck_statement<A: Ast>(
@@ -261,13 +262,7 @@ fn typecheck_statement<A: Ast>(
             .var(*var)
             .val
             .as_ref()
-            .map(|expr| {
-                Ok(check_expr_has_type(
-                    program,
-                    program.var(*var).ty.get_contents()?,
-                    expr,
-                )?)
-            })
+            .map(|expr| check_expr_has_type(program, program.var(*var).ty.get_contents()?, expr))
             .transpose()
             .map(|_| ()),
         Statement::Assign(expr_to, expr) => {
@@ -296,7 +291,7 @@ fn typecheck_item<A: Ast>(program: &Program<A>, item: &Item<A>) -> Result<(), A>
         Item::GlobalVar(v) => {
             let v = program.var(*v);
             if let Some(val) = &v.val {
-                check_expr_has_type(program, v.ty.get_contents()?, &val)
+                check_expr_has_type(program, v.ty.get_contents()?, val)
             } else {
                 Ok(())
             }
@@ -307,7 +302,7 @@ fn typecheck_item<A: Ast>(program: &Program<A>, item: &Item<A>) -> Result<(), A>
                 typecheck_statement(
                     program,
                     stmt,
-                    f.ret.as_ref().map(|x| Ok(x.get_contents()?)).transpose()?,
+                    f.ret.as_ref().map(|x| x.get_contents()).transpose()?,
                 )?
             }
             Ok(())

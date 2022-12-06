@@ -187,7 +187,7 @@ impl<'a> ParserState<'a> {
             self.funs.push(decl);
             idx
         };
-        scope.functions.insert(name.clone(), idx);
+        scope.functions.insert(name, idx);
         Ok(idx)
     }
 
@@ -212,7 +212,7 @@ impl<'a> ParserState<'a> {
         let idx = VarIndex(self.vars.len());
         let name = decl.ident.name.clone();
         self.vars.push(decl);
-        scope.variables.insert(name.clone(), idx);
+        scope.variables.insert(name, idx);
         Ok(idx)
     }
 

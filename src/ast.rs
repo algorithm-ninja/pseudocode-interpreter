@@ -40,7 +40,7 @@ impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
     pub fn get_contents(&self) -> Result<&T, Error<A>> {
         self.contents
             .get()
-            .ok_or(Error::MissingNode(self.id, self.info.clone()))
+            .ok_or_else(|| Error::MissingNode(self.id, self.info.clone()))
     }
 
     pub fn unwrap(&self) -> &T {

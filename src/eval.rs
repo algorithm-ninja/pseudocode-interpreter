@@ -63,16 +63,15 @@ fn check_fun_ret<A: Ast>(fun: &FnDecl<A>, ty: &Type<A>) -> Result<(), A> {
                 vec![ty.clone()],
             ));
         }
-    } else {
-        if !ty.is_same(&Type::Void)? {
-            return Err(Error::TypeError(
-                0,
-                A::NodeInfo::default(),
-                Type::Void,
-                vec![ty.clone()],
-            ));
-        }
+    } else if !ty.is_same(&Type::Void)? {
+        return Err(Error::TypeError(
+            0,
+            A::NodeInfo::default(),
+            Type::Void,
+            vec![ty.clone()],
+        ));
     }
+
     Ok(())
 }
 
@@ -114,7 +113,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     fn start_block(&mut self, blk: &'a Block<A>, vars: &[VarIndex], values: &[LValue]) {
         assert!(vars.len() == values.len());
         self.eval_stack
-            .push_back(EvalStackElement::Statement(&blk, 0));
+            .push_back(EvalStackElement::Statement(blk, 0));
         self.local_variables.push_back(Scope {
             variables: vars
                 .iter()
@@ -300,7 +299,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 let init = if let Some(val) = &d.val {
                     el!(self, val)
                 } else {
-                    LValue::new_for_type(&d.ty.unwrap())
+                    LValue::new_for_type(d.ty.unwrap())
                 };
                 self.local_variables
                     .back_mut()
@@ -471,9 +470,9 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 if let LValue::Integer(e1) = e1 {
                     if let LValue::Integer(e2) = e2 {
                         if *ty == RangeType::HalfOpen {
-                            LValue::Array((e1..e2).map(|x| LValue::Integer(x)).collect())
+                            LValue::Array((e1..e2).map(LValue::Integer).collect())
                         } else {
-                            LValue::Array((e1..=e2).map(|x| LValue::Integer(x)).collect())
+                            LValue::Array((e1..=e2).map(LValue::Integer).collect())
                         }
                     } else {
                         unreachable!()
