@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::error::Error;
 
 mod common;
@@ -20,7 +18,11 @@ use ty::*;
 pub fn parse(src: &str) -> Result<Program<TextAst>> {
     let mut parser_state = ParserState::new(src);
 
-    let mut out = Program { items: vec![] };
+    let mut out = Program {
+        items: vec![],
+        funs: vec![],
+        vars: vec![],
+    };
 
     while !parser_state.done() {
         match parser_state.peek()? {
@@ -33,7 +35,7 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
             (Token::Variable, _, _) => {
                 let id = parser_state.start_node();
                 let decl = parse_var_decl(&mut parser_state, /*allow_init=*/ false)?;
-                let decl = parser_state.add_var(Arc::new(decl))?;
+                let decl = parser_state.add_var(decl)?;
                 out.items
                     .push(parser_state.end_node(id, Item::GlobalVar(decl)));
             }

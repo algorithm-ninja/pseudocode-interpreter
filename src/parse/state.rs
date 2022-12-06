@@ -1,5 +1,6 @@
 use super::common::*;
 use super::lexer::*;
+
 use std::sync::Weak;
 use std::{collections::HashMap, fmt::Debug, ops::Range, sync::Arc};
 
@@ -9,8 +10,8 @@ use ordered_float::NotNan;
 #[derive(Debug)]
 struct ScopeState {
     types: HashMap<String, Arc<TypeDecl<TextAst>>>,
-    variables: HashMap<String, Arc<VarDecl<TextAst>>>,
-    functions: HashMap<String, Arc<FnDecl<TextAst>>>,
+    variables: HashMap<String, VarIndex>,
+    functions: HashMap<String, FnIndex>,
 }
 
 #[derive(Debug)]
@@ -38,8 +39,9 @@ pub struct ParserState<'a> {
     next_node_id: usize,
     scope_state: Vec<ScopeState>,
     node_state: Vec<NodeState>,
-    // All functions that are not yet fully defined.
-    unknown_functions: HashMap<String, Arc<FnDecl<TextAst>>>,
+    vars: Vec<VarDecl<TextAst>>,
+    funs: Vec<FnDecl<TextAst>>,
+    unknown_funs: HashMap<String, FnIndex>,
 }
 
 impl<'a> ParserState<'a> {
@@ -53,7 +55,9 @@ impl<'a> ParserState<'a> {
             next_node_id: 0,
             scope_state: vec![ScopeState::new()],
             node_state: vec![],
-            unknown_functions: HashMap::new(),
+            vars: vec![],
+            funs: vec![],
+            unknown_funs: HashMap::new(),
         }
     }
 
@@ -142,62 +146,74 @@ impl<'a> ParserState<'a> {
             .expect("Programming error: closing a scope while none are open");
     }
 
-    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> Weak<FnDecl<TextAst>> {
+    pub fn find_fn(&mut self, ident: Ident<TextAst>) -> FnIndex {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.functions.get(&ident.name) {
-                return Arc::downgrade(x);
+                return *x;
             }
         }
-        if let Some(x) = self.unknown_functions.get(&ident.name) {
-            return Arc::downgrade(x);
+        if let Some(x) = self.unknown_funs.get(&ident.name) {
+            return *x;
         }
-        let fd = Arc::new(FnDecl {
+        let fd = FnDecl {
             ident: ident.clone(),
             args: vec![],
             body: Block { statements: vec![] },
             ret: None,
-        });
-        let ret = Arc::downgrade(&fd);
-        self.unknown_functions.insert(ident.name, fd);
-        ret
+        };
+        let idx = FnIndex(self.funs.len());
+        self.funs.push(fd);
+        self.unknown_funs.insert(ident.name, idx);
+        idx
     }
 
-    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<Arc<FnDecl<TextAst>>> {
+    pub fn add_fn(&mut self, decl: FnDecl<TextAst>) -> Result<FnIndex> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.functions.get(&decl.ident.name) {
             return Err(Error::DuplicateFunction(
                 decl.ident.clone(),
-                prev.ident.clone(),
+                self.funs[prev.0].ident.clone(),
             ));
         }
 
         let name = decl.ident.name.clone();
-        scope.functions.insert(name.clone(), Arc::new(decl));
-        Ok(scope.functions.get(&name).unwrap().clone())
+        let idx = if self.unknown_funs.contains_key(&decl.ident.name) {
+            let idx = self.unknown_funs.remove(&decl.ident.name).unwrap();
+            self.funs[idx.0] = decl;
+            idx
+        } else {
+            let idx = FnIndex(self.funs.len());
+            self.funs.push(decl);
+            idx
+        };
+        scope.functions.insert(name.clone(), idx);
+        Ok(idx)
     }
 
-    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<Weak<VarDecl<TextAst>>> {
+    pub fn find_var(&mut self, ident: Ident<TextAst>) -> Result<VarIndex> {
         for s in self.scope_state.iter().rev() {
             if let Some(x) = s.variables.get(&ident.name) {
-                return Ok(Arc::downgrade(x));
+                return Ok(*x);
             }
         }
         Err(Error::UnrecognizedVariable(ident))
     }
 
-    pub fn add_var(&mut self, decl: Arc<VarDecl<TextAst>>) -> Result<Arc<VarDecl<TextAst>>> {
+    pub fn add_var(&mut self, decl: VarDecl<TextAst>) -> Result<VarIndex> {
         self.disallow_rollback();
         let scope = self.scope_state.last_mut().unwrap();
         if let Some(prev) = scope.variables.get(&decl.ident.name) {
             return Err(Error::DuplicateVariable(
                 decl.ident.clone(),
-                prev.ident.clone(),
+                self.funs[prev.0].ident.clone(),
             ));
         }
+        let idx = VarIndex(self.vars.len());
         let name = decl.ident.name.clone();
-        scope.variables.insert(name.clone(), decl);
-        Ok(scope.variables.get(&name).unwrap().clone())
+        self.vars.push(decl);
+        scope.variables.insert(name.clone(), idx);
+        Ok(idx)
     }
 
     pub fn find_type(&mut self, ident: Ident<TextAst>) -> Result<Weak<TypeDecl<TextAst>>> {
@@ -298,7 +314,7 @@ impl<'a> ParserState<'a> {
         self.node_state.push(node);
     }
 
-    pub fn finalize(&self, _program: &mut Program<TextAst>) -> Result<()> {
+    pub fn finalize(&mut self, program: &mut Program<TextAst>) -> Result<()> {
         assert!(
             self.node_state.is_empty(),
             "Programming error: some nodes were never closed"
@@ -308,11 +324,13 @@ impl<'a> ParserState<'a> {
             "Programming error: some scopes were never closed"
         );
 
-        // TODO(veluca): implement recursion by fixing up the AST, or changing its representation
-        // for variables/functions.
-        if let Some((_, f)) = self.unknown_functions.iter().next() {
-            return Err(Error::UnrecognizedFunction(f.ident.clone()));
+        if let Some((_, f)) = self.unknown_funs.iter().next() {
+            return Err(Error::UnrecognizedFunction(self.funs[f.0].ident.clone()));
         }
+
+        program.funs = self.funs.drain(..).collect();
+        program.vars = self.vars.drain(..).collect();
+
         Ok(())
     }
 }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use im::{HashMap, OrdSet, Vector};
 use ordered_float::NotNan;
 
-use crate::ast::{Ast, Type, VarDecl};
+use crate::ast::{Ast, Type, VarIndex};
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum LValue {
@@ -49,8 +49,7 @@ impl LValue {
 }
 
 #[derive(Clone, Debug)]
-pub struct RValue<'a, A: Ast> {
-    // TODO: tuple/namedtuple rvalues.
-    pub vardecl: &'a VarDecl<A>,
+pub struct RValue {
+    pub vardecl: VarIndex,
     pub indices: Vector<LValue>,
 }

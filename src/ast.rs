@@ -7,6 +7,12 @@ use ordered_float::NotNan;
 
 use crate::error::Error;
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct VarIndex(pub usize);
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct FnIndex(pub usize);
+
 pub trait AstNode<T> {
     fn get(&self) -> Option<&T>;
     fn new(val: T) -> Self;
@@ -162,7 +168,7 @@ type ExprNode<A> = Node<A, Expr<A>>;
 
 #[derive(Debug, Clone)]
 pub enum Expr<A: Ast> {
-    Ref(Weak<VarDecl<A>>),
+    Ref(VarIndex),
     Integer(i64),
     Float(NotNan<f64>),
     String(String),
@@ -177,7 +183,7 @@ pub enum Expr<A: Ast> {
     BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),
     Not(Box<ExprNode<A>>),
     ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
-    FunctionCall(Weak<FnDecl<A>>, Vec<ExprNode<A>>),
+    FunctionCall(FnIndex, Vec<ExprNode<A>>),
     MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),
     Output(Box<ExprNode<A>>),
     TupleField(Box<ExprNode<A>>, usize),
@@ -186,12 +192,12 @@ pub enum Expr<A: Ast> {
 
 #[derive(Debug, Clone)]
 pub enum Statement<A: Ast> {
-    Decl(Arc<VarDecl<A>>),
+    Decl(VarIndex),
     Comment(String),
     Assign(ExprNode<A>, ExprNode<A>),
     If(ExprNode<A>, Block<A>, Block<A>),
     While(ExprNode<A>, Block<A>),
-    For(Arc<VarDecl<A>>, ExprNode<A>, Block<A>),
+    For(VarIndex, ExprNode<A>, Block<A>),
     Return(Option<ExprNode<A>>),
     Expr(ExprNode<A>),
 }
@@ -199,8 +205,8 @@ pub enum Statement<A: Ast> {
 #[derive(Debug, Clone)]
 pub enum Item<A: Ast> {
     Comment(String),
-    GlobalVar(Arc<VarDecl<A>>),
-    Fn(Arc<FnDecl<A>>),
+    GlobalVar(VarIndex),
+    Fn(FnIndex),
     Type(Arc<TypeDecl<A>>),
 }
 
@@ -226,13 +232,15 @@ pub struct VarDecl<A: Ast> {
 #[derive(Debug, Clone)]
 pub struct FnDecl<A: Ast> {
     pub ident: Ident<A>,
-    pub args: Vec<Arc<VarDecl<A>>>,
+    pub args: Vec<VarIndex>,
     pub ret: Option<TypeNode<A>>,
     pub body: Block<A>,
 }
 
 #[derive(Debug)]
 pub struct Program<A: Ast> {
+    pub vars: Vec<VarDecl<A>>,
+    pub funs: Vec<FnDecl<A>>,
     pub items: Vec<Node<A, Item<A>>>,
 }
 
@@ -278,5 +286,14 @@ impl<T: AstNode<T>> AstNode<T> for Option<T> {
     }
     fn new(t: T) -> Self {
         Some(t)
+    }
+}
+
+impl<A: Ast> Program<A> {
+    pub fn var(&self, idx: VarIndex) -> &VarDecl<A> {
+        &self.vars[idx.0]
+    }
+    pub fn fun(&self, idx: FnIndex) -> &FnDecl<A> {
+        &self.funs[idx.0]
     }
 }

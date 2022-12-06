@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::parse::expr::parse_expr;
 
 use super::common::*;
@@ -28,19 +26,20 @@ pub fn parse_var_decl(
 
 pub fn parse_block(
     parser_state: &mut ParserState,
-    extra_decls: &Vec<Arc<VarDecl<TextAst>>>,
-) -> Result<Block<TextAst>> {
+    extra_decls: &Vec<VarDecl<TextAst>>,
+) -> Result<(Vec<VarIndex>, Block<TextAst>)> {
     let mut statements = vec![];
     parser_state.start_scope();
+    let mut extra_decl_idxs = vec![];
     for var in extra_decls {
-        parser_state.add_var(var.clone())?;
+        extra_decl_idxs.push(parser_state.add_var(var.clone())?);
     }
     loop {
         match parser_state.peek()? {
             (Token::Variable, _, _) => {
                 let id = parser_state.start_node();
                 let v = parse_var_decl(parser_state, /*allow_init=*/ true)?;
-                let v = parser_state.add_var(Arc::new(v))?;
+                let v = parser_state.add_var(v)?;
                 statements.push(parser_state.end_node(id, Statement::Decl(v)));
             }
             (Token::Comment, _, s) => {
@@ -59,11 +58,11 @@ pub fn parse_block(
                 let cond = parse_expr(parser_state)?;
                 parser_state.require(Token::Then)?;
                 parser_state.require(Token::Newline)?;
-                let then_block = parse_block(parser_state, &vec![])?;
+                let then_block = parse_block(parser_state, &vec![])?.1;
                 let else_block = if parser_state.peek()?.0 == Token::Else {
                     parser_state.require(Token::Else)?;
                     parser_state.require(Token::Newline)?;
-                    parse_block(parser_state, &vec![])?
+                    parse_block(parser_state, &vec![])?.1
                 } else {
                     Block { statements: vec![] }
                 };
@@ -79,7 +78,7 @@ pub fn parse_block(
                 let cond = parse_expr(parser_state)?;
                 parser_state.require(Token::Do)?;
                 parser_state.require(Token::Newline)?;
-                let block = parse_block(parser_state, &vec![])?;
+                let block = parse_block(parser_state, &vec![])?.1;
                 parser_state.require(Token::End)?;
                 parser_state.require(Token::While)?;
                 parser_state.require(Token::Newline)?;
@@ -90,20 +89,20 @@ pub fn parse_block(
                 parser_state.require(Token::For)?;
                 let ident = parser_state.ident()?;
                 parser_state.require(Token::Colon)?;
-                let var = Arc::new(VarDecl {
+                let var = VarDecl {
                     ident,
                     ty: parse_type(parser_state)?,
                     val: None,
-                });
+                };
                 parser_state.require(Token::In)?;
                 let arr = parse_expr(parser_state)?;
                 parser_state.require(Token::Do)?;
                 parser_state.require(Token::Newline)?;
-                let block = parse_block(parser_state, &vec![var.clone()])?;
+                let (decl, block) = parse_block(parser_state, &vec![var.clone()])?;
                 parser_state.require(Token::End)?;
                 parser_state.require(Token::For)?;
                 parser_state.require(Token::Newline)?;
-                statements.push(parser_state.end_node(id, Statement::For(var, arr, block)));
+                statements.push(parser_state.end_node(id, Statement::For(decl[0], arr, block)));
             }
             (Token::Return, _, _) => {
                 let id = parser_state.start_node();
@@ -138,7 +137,7 @@ pub fn parse_block(
         };
     }
     parser_state.end_scope();
-    Ok(Block { statements })
+    Ok((extra_decl_idxs, Block { statements }))
 }
 
 pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> {
@@ -148,11 +147,11 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
     let args = parse_comma_separated(parser_state, Token::ClosedP, |ps| {
         let ident = ps.ident()?;
         ps.require(Token::Colon)?;
-        Ok(Arc::new(VarDecl {
+        Ok(VarDecl {
             ident,
             ty: parse_type(ps)?,
             val: None,
-        }))
+        })
     })?
     .0;
     let ret = if parser_state.peek()?.0 == Token::Arrow {
@@ -162,13 +161,13 @@ pub fn parse_fn_decl(parser_state: &mut ParserState) -> Result<FnDecl<TextAst>> 
         None
     };
     parser_state.require(Token::Newline)?;
-    let body = parse_block(parser_state, &args)?;
+    let (decls, body) = parse_block(parser_state, &args)?;
     parser_state.require(Token::End)?;
     parser_state.require(Token::Function)?;
     parser_state.require(Token::Newline)?;
     Ok(FnDecl {
         ident,
-        args,
+        args: decls,
         ret,
         body,
     })

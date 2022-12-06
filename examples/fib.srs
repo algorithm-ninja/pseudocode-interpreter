@@ -1,0 +1,12 @@
+function fib(a: integer) -> integer
+  if a < 2 then
+    return a
+  end if
+  return fib(a-1) + fib(a-2)
+end function
+
+
+function main()
+  output(fib(28))
+end function
+

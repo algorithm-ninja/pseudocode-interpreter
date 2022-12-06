@@ -30,12 +30,20 @@ fn expect_type<A: Ast, NT: Debug + AstNode<NT> + Clone>(
     ))
 }
 
-fn check_expr_has_type<A: Ast>(to_type: &Type<A>, from: &Node<A, Expr<A>>) -> Result<(), A> {
-    let ty = typecheck_expr(from, ValueType::LValue)?;
+fn check_expr_has_type<A: Ast>(
+    program: &Program<A>,
+    to_type: &Type<A>,
+    from: &Node<A, Expr<A>>,
+) -> Result<(), A> {
+    let ty = typecheck_expr(program, from, ValueType::LValue)?;
     expect_type(&vec![to_type], from, &ty)
 }
 
-fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Result<Type<A>, A> {
+fn typecheck_expr<A: Ast>(
+    program: &Program<A>,
+    expr: &Node<A, Expr<A>>,
+    value_type: ValueType,
+) -> Result<Type<A>, A> {
     let check_is_lvalue = || {
         if value_type == ValueType::RValue {
             return Err(Error::NotAssignable(expr.id, expr.info.clone()));
@@ -46,9 +54,9 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
         if exprs.is_empty() {
             todo!(); // Figure out what to do here
         }
-        let ty1 = typecheck_expr(&exprs[0], value_type)?;
+        let ty1 = typecheck_expr(program, &exprs[0], value_type)?;
         for e in exprs.iter().skip(1) {
-            check_expr_has_type(&ty1, e)?;
+            check_expr_has_type(program, &ty1, e)?;
         }
         Ok(ty1)
     };
@@ -56,17 +64,17 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
         if exprs.is_empty() {
             todo!(); // Figure out what to do here
         }
-        let ty1first = typecheck_expr(&exprs[0].0, value_type)?;
-        let ty1second = typecheck_expr(&exprs[0].1, value_type)?;
+        let ty1first = typecheck_expr(program, &exprs[0].0, value_type)?;
+        let ty1second = typecheck_expr(program, &exprs[0].1, value_type)?;
         for e in exprs.iter().skip(1) {
-            check_expr_has_type(&ty1first, &e.0)?;
-            check_expr_has_type(&ty1second, &e.1)?;
+            check_expr_has_type(program, &ty1first, &e.0)?;
+            check_expr_has_type(program, &ty1second, &e.1)?;
         }
         Ok((ty1first, ty1second))
     };
 
     let ty = match expr.get_contents()? {
-        Expr::Ref(var) => var.upgrade().unwrap().ty.get_contents()?.clone(),
+        Expr::Ref(var) => program.var(*var).ty.get_contents()?.clone(),
         Expr::Integer(_) => {
             check_is_lvalue()?;
             Type::Integer
@@ -102,33 +110,33 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
         Expr::Tuple(fields) => Type::Tuple(
             fields
                 .iter()
-                .map(|x| typecheck_expr(x, value_type).map(|x| Node::new_with_defaults(x)))
+                .map(|x| typecheck_expr(program, x, value_type).map(|x| Node::new_with_defaults(x)))
                 .collect::<Result<Vec<_>, _>>()?,
         ),
         Expr::NamedTuple(fields) => Type::NamedTuple(
             fields
                 .iter()
                 .map(|x| {
-                    typecheck_expr(&x.1, value_type)
+                    typecheck_expr(program, &x.1, value_type)
                         .map(|y| (x.0.clone(), Node::new_with_defaults(y)))
                 })
                 .collect::<Result<Vec<_>, _>>()?,
         ),
         Expr::Range(e1, e2, _) => {
             check_is_lvalue()?;
-            check_expr_has_type(&Type::Integer, e1)?;
-            check_expr_has_type(&Type::Integer, e2)?;
+            check_expr_has_type(program, &Type::Integer, e1)?;
+            check_expr_has_type(program, &Type::Integer, e2)?;
             Type::Array(Box::new(Node::new_with_defaults(Type::Integer)))
         }
-        Expr::Parens(e) => typecheck_expr(e, value_type)?,
+        Expr::Parens(e) => typecheck_expr(program, e, value_type)?,
         Expr::Not(e) => {
-            check_expr_has_type(&Type::Bool, e)?;
+            check_expr_has_type(program, &Type::Bool, e)?;
             Type::Bool
         }
         Expr::BinaryOp(e1, op, e2) => {
             check_is_lvalue()?;
-            let ty1 = typecheck_expr(e1, ValueType::LValue)?;
-            check_expr_has_type(&ty1, e2)?;
+            let ty1 = typecheck_expr(program, e1, ValueType::LValue)?;
+            check_expr_has_type(program, &ty1, e2)?;
             match op {
                 BinaryOp::Le
                 | BinaryOp::Ge
@@ -155,8 +163,8 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
             }
         }
         Expr::ArrayIndex(expr1, expr2) => {
-            check_expr_has_type(&Type::Integer, expr2)?;
-            if let Type::Array(inner) = typecheck_expr(expr1, value_type)? {
+            check_expr_has_type(program, &Type::Integer, expr2)?;
+            if let Type::Array(inner) = typecheck_expr(program, expr1, value_type)? {
                 inner.get_contents()?.clone()
             } else {
                 return Err(Error::ExpectedArray(expr.id, expr.info.clone()));
@@ -164,7 +172,7 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
         }
         Expr::Output(e) => {
             check_is_lvalue()?;
-            typecheck_expr(e, ValueType::LValue)?;
+            typecheck_expr(program, e, ValueType::LValue)?;
             Type::Void
         }
         Expr::MethodCall(_, _, _) => {
@@ -172,24 +180,25 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
             todo!()
         }
         Expr::FunctionCall(f, args) => {
-            if args.len() != f.upgrade().unwrap().args.len() {
+            let f = program.fun(*f);
+            if args.len() != f.args.len() {
                 return Err(Error::WrongArgumentNumber(
                     expr.id,
                     expr.info.clone(),
-                    f.upgrade().unwrap().ident.clone(),
+                    f.ident.clone(),
                 ));
             }
-            for (expr, def) in args.iter().zip(f.upgrade().unwrap().args.iter()) {
-                check_expr_has_type(def.ty.get_contents()?, expr)?;
+            for (expr, def) in args.iter().zip(f.args.iter()) {
+                check_expr_has_type(program, program.var(*def).ty.get_contents()?, expr)?;
             }
-            if let Some(t) = &f.upgrade().unwrap().ret {
+            if let Some(t) = &f.ret {
                 t.get_contents()?.clone()
             } else {
                 Type::Void
             }
         }
         Expr::TupleField(expr, idx) => {
-            if let Type::Tuple(inner) = typecheck_expr(expr, value_type)? {
+            if let Type::Tuple(inner) = typecheck_expr(program, expr, value_type)? {
                 if inner.len() >= *idx {
                     return Err(Error::InvalidTupleField(expr.id, expr.info.clone(), *idx));
                 }
@@ -199,7 +208,7 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
             }
         }
         Expr::NamedTupleField(expr, name) => {
-            if let Type::NamedTuple(inner) = typecheck_expr(expr, value_type)? {
+            if let Type::NamedTuple(inner) = typecheck_expr(program, expr, value_type)? {
                 if let Some(x) = inner.iter().filter(|x| x.0.name == name.name).next() {
                     x.1.get_contents()?.clone()
                 } else {
@@ -218,45 +227,57 @@ fn typecheck_expr<A: Ast>(expr: &Node<A, Expr<A>>, value_type: ValueType) -> Res
 }
 
 fn typecheck_statement<A: Ast>(
+    program: &Program<A>,
     statement: &Node<A, Statement<A>>,
     ret_type: Option<&Type<A>>,
 ) -> Result<(), A> {
     match statement.get_contents()? {
         Statement::Comment(_) => Ok(()),
         Statement::If(boolexpr, b1, b2) => {
-            check_expr_has_type(&Type::Bool, boolexpr)?;
+            check_expr_has_type(program, &Type::Bool, boolexpr)?;
             for s in b1.statements.iter().chain(b2.statements.iter()) {
-                typecheck_statement(s, ret_type)?;
+                typecheck_statement(program, s, ret_type)?;
             }
             Ok(())
         }
         Statement::While(boolexpr, block) => {
-            check_expr_has_type(&Type::Bool, boolexpr)?;
+            check_expr_has_type(program, &Type::Bool, boolexpr)?;
             for s in block.statements.iter() {
-                typecheck_statement(s, ret_type)?;
+                typecheck_statement(program, s, ret_type)?;
             }
             Ok(())
         }
         Statement::For(var, expr, block) => {
             for s in block.statements.iter() {
-                typecheck_statement(s, ret_type)?;
+                typecheck_statement(program, s, ret_type)?;
             }
-            check_expr_has_type(&Type::Array(Box::new(var.ty.clone())), expr)
+            check_expr_has_type(
+                program,
+                &Type::Array(Box::new(program.var(*var).ty.clone())),
+                expr,
+            )
         }
-        Statement::Decl(var) => var
+        Statement::Decl(var) => program
+            .var(*var)
             .val
             .as_ref()
-            .map(|expr| Ok(check_expr_has_type(var.ty.get_contents()?, expr)?))
+            .map(|expr| {
+                Ok(check_expr_has_type(
+                    program,
+                    program.var(*var).ty.get_contents()?,
+                    expr,
+                )?)
+            })
             .transpose()
             .map(|_| ()),
         Statement::Assign(expr_to, expr) => {
-            let type_to = typecheck_expr(expr_to, ValueType::RValue)?;
-            check_expr_has_type(&type_to, expr)
+            let type_to = typecheck_expr(program, expr_to, ValueType::RValue)?;
+            check_expr_has_type(program, &type_to, expr)
         }
-        Statement::Expr(expr) => typecheck_expr(expr, ValueType::LValue).map(|_| ()),
+        Statement::Expr(expr) => typecheck_expr(program, expr, ValueType::LValue).map(|_| ()),
         Statement::Return(expr) => {
             if let (Some(expr), Some(ty)) = (expr, ret_type) {
-                check_expr_has_type(ty, expr)
+                check_expr_has_type(program, ty, expr)
             } else if expr.is_none() && ret_type.is_none() {
                 Ok(())
             } else if let Some(expr) = expr {
@@ -268,20 +289,23 @@ fn typecheck_statement<A: Ast>(
     }
 }
 
-fn typecheck_item<A: Ast>(item: &Item<A>) -> Result<(), A> {
+fn typecheck_item<A: Ast>(program: &Program<A>, item: &Item<A>) -> Result<(), A> {
     match item {
         Item::Type(_) => Ok(()),
         Item::Comment(_) => Ok(()),
         Item::GlobalVar(v) => {
+            let v = program.var(*v);
             if let Some(val) = &v.val {
-                check_expr_has_type(v.ty.get_contents()?, &val)
+                check_expr_has_type(program, v.ty.get_contents()?, &val)
             } else {
                 Ok(())
             }
         }
         Item::Fn(f) => {
+            let f = program.fun(*f);
             for stmt in f.body.statements.iter() {
                 typecheck_statement(
+                    program,
                     stmt,
                     f.ret.as_ref().map(|x| Ok(x.get_contents()?)).transpose()?,
                 )?
@@ -293,7 +317,7 @@ fn typecheck_item<A: Ast>(item: &Item<A>) -> Result<(), A> {
 
 pub fn typecheck<A: Ast>(program: &Program<A>) -> Result<(), A> {
     for i in program.items.iter() {
-        typecheck_item(i.get_contents()?)?;
+        typecheck_item(program, i.get_contents()?)?;
     }
     Ok(())
 }

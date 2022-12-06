@@ -21,3 +21,6 @@ thiserror = "1.0.37"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[profile.release]
+debug = true
+
