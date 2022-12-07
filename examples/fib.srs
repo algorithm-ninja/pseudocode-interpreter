@@ -7,6 +7,6 @@ end function
 
 
 function main()
-  output(fib(28))
+  output(fib(31))
 end function
 
