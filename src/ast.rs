@@ -296,4 +296,10 @@ impl<A: Ast> Program<A> {
     pub fn fun(&self, idx: FnIndex) -> &FnDecl<A> {
         &self.funs[idx.0]
     }
+    pub fn num_vars(&self) -> usize {
+        self.vars.len()
+    }
+    pub fn num_funs(&self) -> usize {
+        self.funs.len()
+    }
 }

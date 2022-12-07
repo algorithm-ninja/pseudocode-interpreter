@@ -2,18 +2,13 @@
 
 use std::{fmt::Debug, sync::Arc};
 
-use im::{HashMap, Vector};
+use im::Vector;
 
 use crate::{
     ast::*,
     error::Error,
     value::{LValue, RValue},
 };
-
-#[derive(Clone, Debug)]
-struct Scope {
-    variables: HashMap<VarIndex, LValue>,
-}
 
 #[derive(Clone, Debug)]
 struct CheckpointableStack<T: Clone + Debug> {
@@ -50,6 +45,16 @@ impl<T: Clone + Debug> CheckpointableStack<T> {
         }
     }
 
+    fn get_mut(&mut self, pos: usize) -> Option<&mut T> {
+        assert!(!self.checkpoints.is_empty());
+        let pos = *self.checkpoints.back().unwrap() + pos;
+        if pos < self.stack_len {
+            self.stack.get_mut(pos)
+        } else {
+            None
+        }
+    }
+
     fn push(&mut self, val: T, pos: usize) {
         assert!(!self.checkpoints.is_empty());
         let pos = *self.checkpoints.back().unwrap() + pos;
@@ -70,13 +75,21 @@ enum EvalStackElement<'a, A: Ast> {
     Statement(&'a Block<A>, usize, usize),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum VariablePosition {
+    Global(usize),
+    Local(usize),
+}
+
 /// Copying a ProgramState is cheap; to keep track of past states, just clone the instance before
 /// calling a mutating method.
 #[derive(Clone, Debug)]
 pub struct ProgramState<'a, A: Ast> {
     program: &'a Program<A>,
-    global_variables: Scope,
-    local_variables: Vector<Scope>,
+    global_variables: Vector<LValue>,
+    local_variables: CheckpointableStack<LValue>,
+    variable_positions: Vector<VariablePosition>,
+    fn_var_count: Vector<usize>,
     // Contains the *next* expression/statement to be evaluated.
     eval_stack: Vector<EvalStackElement<'a, A>>,
     evaluated_expression_lvalues: CheckpointableStack<LValue>,
@@ -85,6 +98,70 @@ pub struct ProgramState<'a, A: Ast> {
 }
 
 pub type Result<T, A> = std::result::Result<T, Error<A>>;
+
+fn compute_variable_positions<A: Ast>(
+    program: &Program<A>,
+) -> (Vector<VariablePosition>, Vector<usize>) {
+    let mut varpos: Vector<_> = (0..program.num_vars())
+        .map(|_| VariablePosition::Local(0))
+        .collect();
+
+    let mut fnsz: Vector<_> = (0..program.num_funs()).map(|_| 0).collect();
+    let mut nglob = 0;
+
+    let mut add_var_to_fn = |var: VarIndex, fun: Option<FnIndex>| {
+        if let Some(fun) = fun {
+            varpos[var.0] = VariablePosition::Local(fnsz[fun.0]);
+            fnsz[fun.0] += 1;
+        } else {
+            varpos[var.0] = VariablePosition::Global(nglob);
+            nglob += 1;
+        }
+    };
+
+    let mut block_stack = vec![];
+
+    for item in program.items.iter() {
+        match item.unwrap() {
+            Item::Comment(_) | Item::Type(_) => {}
+            Item::GlobalVar(v) => {
+                add_var_to_fn(*v, None);
+            }
+            Item::Fn(f) => {
+                let ff = program.fun(*f);
+                ff.args.iter().for_each(|a| add_var_to_fn(*a, Some(*f)));
+                block_stack.push((*f, &ff.body));
+            }
+        }
+    }
+
+    while let Some((f, b)) = block_stack.pop() {
+        for stmt in b.statements.iter() {
+            match stmt.unwrap() {
+                Statement::Comment(_)
+                | Statement::Assign(_, _)
+                | Statement::Return(_)
+                | Statement::Expr(_) => {}
+                Statement::Decl(v) => {
+                    add_var_to_fn(*v, Some(f));
+                }
+                Statement::If(_, b1, b2) => {
+                    block_stack.push((f, b1));
+                    block_stack.push((f, b2));
+                }
+                Statement::While(_, b) => {
+                    block_stack.push((f, b));
+                }
+                Statement::For(v, _, b) => {
+                    add_var_to_fn(*v, Some(f));
+                    block_stack.push((f, b));
+                }
+            }
+        }
+    }
+
+    (varpos, fnsz)
+}
 
 fn check_fun_ret<A: Ast>(fun: &FnDecl<A>, ty: &Type<A>) -> Result<(), A> {
     if let Some(t) = &fun.ret {
@@ -147,14 +224,23 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         self.eval_stack.pop_back().unwrap()
     }
 
+    fn start_fun(&mut self, idx: FnIndex, args: &[LValue]) {
+        self.local_variables.checkpoint();
+        for i in 0..self.fn_var_count[idx.0] {
+            self.local_variables.push(LValue::Void, i);
+        }
+        let fun = self.program.fun(idx);
+        self.start_block(&fun.body, &fun.args[..], args);
+    }
+
     fn start_block(&mut self, blk: &'a Block<A>, vars: &[VarIndex], values: &[LValue]) {
         assert!(vars.len() == values.len());
-        self.local_variables.push_back(Scope {
-            variables: vars
-                .iter()
-                .zip(values.iter())
-                .map(|(v, val)| (*v, val.clone()))
-                .collect(),
+        vars.iter().zip(values.iter()).for_each(|(v, val)| {
+            if let VariablePosition::Local(pos) = self.variable_positions[v.0] {
+                *self.local_variables.get_mut(pos).unwrap() = val.clone();
+            } else {
+                unreachable!()
+            }
         });
         self.start_eval(EvalStackElement::Statement(blk, 0, 0));
     }
@@ -165,7 +251,6 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             Some(EvalStackElement::Statement(_, _, _))
         ));
         self.finish_eval();
-        self.local_variables.pop_back();
     }
 
     fn finish_lvalue_eval(&mut self, lvalue: LValue) {
@@ -198,15 +283,19 @@ impl<'a, A: Ast> ProgramState<'a, A> {
 
     fn check_callee(&mut self, lvalue: LValue) -> Result<Option<LValue>, A> {
         if self.eval_stack.is_empty() {
+            self.local_variables.rollback();
             return Ok(Some(lvalue));
         }
         let back = self.eval_stack.back_mut().unwrap();
         if let EvalStackElement::ExprLValue(expr, _) = back {
+            self.local_variables.rollback();
             if let Expr::FunctionCall(f, _) = expr.unwrap() {
                 if self.program.fun(*f).ret.is_some() && lvalue == LValue::Void {
                     return Err(Error::DidNotReturn(expr.id, expr.info.clone()));
                 }
                 self.finish_lvalue_eval(lvalue);
+            } else {
+                unreachable!();
             }
         }
         Ok(None)
@@ -244,33 +333,37 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     }
 
     fn get_variable(&mut self, var: &VarIndex) -> &mut LValue {
-        if let Some(x) = self.global_variables.variables.get_mut(var) {
-            x
-        } else {
-            self.local_variables
-                .iter_mut()
-                .rev()
-                .find_map(|x| x.variables.get_mut(var))
-                .unwrap()
+        match self.variable_positions[var.0] {
+            VariablePosition::Global(p) => self.global_variables.get_mut(p).unwrap(),
+            VariablePosition::Local(p) => self.local_variables.get_mut(p).unwrap(),
         }
     }
 
     /// Starts a program from scratch, inizializing global variables to their default values.
     pub fn new(program: &'a Program<A>) -> ProgramState<'a, A> {
-        let mut vars = HashMap::new();
+        let (variable_positions, fn_var_count) = compute_variable_positions(program);
+
+        let mut global_variables = Vector::new();
+
         for item in program.items.iter() {
             if let Item::GlobalVar(v) = *item.unwrap() {
+                assert_eq!(
+                    variable_positions[v.0],
+                    VariablePosition::Global(global_variables.len())
+                );
                 let vd = program.var(v);
                 // Global variables cannot be inizialized (this is checked by the parser).
                 assert!(vd.val.is_none());
-                vars.insert(v, LValue::new_for_type(vd.ty.unwrap()));
+                global_variables.push_back(LValue::new_for_type(vd.ty.unwrap()));
             }
         }
 
         ProgramState {
             program,
-            global_variables: Scope { variables: vars },
-            local_variables: Vector::new(),
+            global_variables,
+            local_variables: CheckpointableStack::new(),
+            variable_positions,
+            fn_var_count,
             eval_stack: Vector::new(),
             evaluated_expression_rvalues: CheckpointableStack::new(),
             evaluated_expression_lvalues: CheckpointableStack::new(),
@@ -287,17 +380,17 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         ret_type: &Type<A>,
     ) -> Result<(), A> {
         let fname = fun;
-        let fun = self.program.items.iter().find_map(|x| {
-            if let Item::Fn(f) = *x.unwrap() {
-                let f = self.program.fun(f);
+        let idx = self.program.items.iter().find_map(|x| {
+            if let Item::Fn(idx) = *x.unwrap() {
+                let f = self.program.fun(idx);
                 if f.ident.name == fun {
-                    return Some(f);
+                    return Some(idx);
                 }
             }
             None
         });
-        let fun = if let Some(fun) = fun {
-            fun
+        let fun = if let Some(idx) = idx {
+            self.program.fun(idx)
         } else {
             return Err(Error::UnrecognizedFunction(Ident {
                 name: fname.to_owned(),
@@ -313,7 +406,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
 
         assert!(self.eval_stack.is_empty());
 
-        self.start_block(&fun.body, &fun.args[..], args);
+        self.start_fun(idx.unwrap(), args);
         Ok(())
     }
 
@@ -347,11 +440,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                 } else {
                     LValue::new_for_type(d.ty.unwrap())
                 };
-                self.local_variables
-                    .back_mut()
-                    .unwrap()
-                    .variables
-                    .insert(*v, init);
+                *self.get_variable(v) = init;
             }
             Statement::Assign(to, expr) => {
                 let val = el!(self, elidx, expr);
@@ -449,7 +538,13 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         let mut elidx = 0;
 
         let val = match expr.unwrap() {
-            Expr::Ref(var) => self.get_variable(var).clone(),
+            Expr::Ref(var) => {
+                let v = self.get_variable(var).clone();
+                // Every variable must be initialized when it is used - this is guaranteed by the
+                // parser.
+                assert!(v != LValue::Void);
+                v
+            }
             Expr::Integer(i) => LValue::Integer(*i),
             Expr::Float(i) => LValue::Float(*i),
             Expr::Bool(i) => LValue::Bool(*i),
@@ -622,8 +717,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
                     .map(|x| Ok(Some(el!(self, elidx, x))))
                     .collect::<Result<Option<Vec<_>>, A>>()?;
                 if let Some(vals) = args {
-                    let f = self.program.fun(*f);
-                    self.start_block(&f.body, &f.args[..], &vals[..]);
+                    self.start_fun(*f, &vals[..])
                 }
                 return Ok(None);
             }
