@@ -10,7 +10,7 @@ use crate::error::Error;
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct VarIndex(pub usize);
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FnIndex(pub usize);
 
 pub trait AstNode<T> {

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use im::{HashMap, OrdSet, Vector};
 use ordered_float::NotNan;
 
-use crate::ast::{Ast, Type, VarIndex};
+use crate::ast::{Ast, Type};
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum LValue {
@@ -15,8 +15,10 @@ pub enum LValue {
     Set(OrdSet<LValue>),
     Map(HashMap<LValue, LValue>),
     Tuple(Vector<LValue>),
-    NamedTuple(HashMap<String, LValue>),
-    Void, // Represents no value.
+    NamedTuple(Vector<LValue>),
+    // Represents no value. It is either an uninitialized stack entry, or the return value of a
+    // top-level function.
+    Void,
 }
 
 impl LValue {
@@ -36,11 +38,10 @@ impl LValue {
                     .map(|t| LValue::new_for_type(t.unwrap()))
                     .collect(),
             ),
-
             Type::NamedTuple(names_and_types) => LValue::NamedTuple(
                 names_and_types
                     .iter()
-                    .map(|(n, t)| (n.name.to_owned(), LValue::new_for_type(t.unwrap())))
+                    .map(|(_, t)| LValue::new_for_type(t.unwrap()))
                     .collect(),
             ),
             _ => unreachable!("Invalid type"),
@@ -48,8 +49,15 @@ impl LValue {
     }
 }
 
+impl Default for LValue {
+    fn default() -> Self {
+        LValue::Void
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct RValue {
-    pub vardecl: VarIndex,
-    pub indices: Vector<LValue>,
+    pub lstack_pos: usize,
+    // TODO(veluca): consider using a small-vector.
+    pub indices: Vec<i64>,
 }

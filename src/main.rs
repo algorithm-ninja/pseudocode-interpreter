@@ -1,15 +1,15 @@
 use clap::Parser;
 use clap_derive::Parser;
 use pseudocode_interpreter::eval::ProgramState;
-use pseudocode_interpreter::value::LValue;
+
 use std::fs::File;
 use std::io::Read;
 
 use anyhow::Result;
 
+use pseudocode_interpreter::compile;
 use pseudocode_interpreter::error;
 use pseudocode_interpreter::parse;
-use pseudocode_interpreter::typecheck;
 
 #[derive(Parser)]
 struct Args {
@@ -37,18 +37,14 @@ fn main() -> Result<()> {
 
     let ast = (|src| {
         let a = parse::parse(src)?;
-        typecheck::typecheck(&a)?;
+        let compiled = compile::compile(&a)?;
         {
-            let mut state = ProgramState::new(&a);
-            state.evaluate_fun("main", &[], &pseudocode_interpreter::ast::Type::Void)?;
-            let ret = loop {
-                if let Some(ret) = state.eval_step()? {
-                    break ret;
-                }
-            };
-
-            assert!(ret == LValue::Void);
-
+            let mut state = ProgramState::new(compiled)?;
+            while !state.eval_step()? {}
+            state.evaluate_fun("main", &[])?;
+            while !state.eval_step()? {
+                // println!("{:?}", state);
+            }
             for line in state.stdout() {
                 println!("{line}");
             }
