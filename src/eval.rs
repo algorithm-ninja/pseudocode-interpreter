@@ -23,8 +23,10 @@ pub struct ProgramState<'a, A: Ast> {
     program: Rc<CompiledProgram<'a, A>>,
 }
 
+type InstructionFn<'a, A> = Box<dyn Fn(&mut ProgramState<'a, A>) -> Result<Option<Ip>, A> + 'a>;
+
 pub struct Instruction<'a, A: Ast> {
-    run: Box<dyn Fn(&mut ProgramState<'a, A>) -> Result<Option<Ip>, A> + 'a>,
+    run: InstructionFn<'a, A>,
 }
 
 impl<'a, A: Ast> Instruction<'a, A> {

@@ -340,7 +340,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
             }
 
             Expr::FunctionCall(f, args) => {
-                let entry = self.fn_entry_point.get(f).unwrap().clone();
+                let entry = *self.fn_entry_point.get(f).unwrap();
                 let f = self.program.fun(*f);
                 if args.len() != f.args.len() {
                     return Err(Error::WrongArgumentNumber(
@@ -518,7 +518,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
             }
             Expr::ArrayIndex(aexpr, iexpr) => {
                 let (n, aty) = self.compile_expr(aexpr, local_lvalues, current)?;
-                let (n, ity) = self.compile_expr(&iexpr, local_lvalues + 1, n)?;
+                let (n, ity) = self.compile_expr(iexpr, local_lvalues + 1, n)?;
                 expect_type(&[&Type::Integer], iexpr, &ity)?;
                 self.instructions[n].set(move |state| {
                     pop_variant!(LValue::Integer(i), state);
@@ -623,7 +623,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
             }
             Expr::ArrayIndex(aexpr, iexpr) => {
                 let (n, aty) = self.compile_expr_rvalue(aexpr, local_lvalues, current)?;
-                let (n, ity) = self.compile_expr(&iexpr, local_lvalues, n)?;
+                let (n, ity) = self.compile_expr(iexpr, local_lvalues, n)?;
                 expect_type(&[&Type::Integer], iexpr, &ity)?;
                 self.instructions[n].set(move |state| {
                     let mut rval = state.rvalues.pop().unwrap();
@@ -883,11 +883,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 .insert(*arg, LValueStorageLocation::Local(i));
         }
         let num_args = fun.args.len();
-        let ret = fun
-            .ret
-            .as_ref()
-            .map(|x| Ok(x.get_contents()?))
-            .transpose()?;
+        let ret = fun.ret.as_ref().map(|x| x.get_contents()).transpose()?;
         let next = self.compile_block(&fun.body, current, num_args, &ret)?;
         if fun.ret.is_some() {
             self.instructions[next].set(|_| Err(Error::DidNotReturn(fun.ident.clone())));
@@ -914,7 +910,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
         let decl = self.program.var(idx);
         if let Some(expr) = &decl.val {
             let (next, ty) = self.compile_expr(expr, num_local_vars, current)?;
-            expect_type(&[decl.ty.get_contents()?], &expr, &ty)?;
+            expect_type(&[decl.ty.get_contents()?], expr, &ty)?;
             Ok(next)
         } else {
             let next = self.add_placeholder();
@@ -942,35 +938,28 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
 
     // Create entry/cleanup blocks for functions.
     for item in program.items.iter() {
-        match item.get_contents()? {
-            Item::Fn(f) => {
-                let placeholder = state.add_placeholder();
-                state.fn_entry_point.insert(*f, placeholder);
-            }
-            _ => {}
-        };
+        if let Item::Fn(f) = item.get_contents()? {
+            let placeholder = state.add_placeholder();
+            state.fn_entry_point.insert(*f, placeholder);
+        }
     }
 
     // Create initialization block(s).
     let mut num_global_vars = 0;
     let mut current = state.ini_entry_point;
     for item in program.items.iter() {
-        match item.get_contents()? {
-            Item::GlobalVar(var) => {
-                let loc = LValueStorageLocation::Global(num_global_vars);
-                num_global_vars += 1;
-                current = state.compile_vardecl(*var, 0, loc, current)?;
-            }
-            _ => {}
-        };
+        if let Item::GlobalVar(var) = item.get_contents()? {
+            let loc = LValueStorageLocation::Global(num_global_vars);
+            num_global_vars += 1;
+            current = state.compile_vardecl(*var, 0, loc, current)?;
+        }
     }
 
     // Compile functions.
     for item in program.items.iter() {
-        match item.get_contents()? {
-            Item::Fn(f) => state.compile_fun(*f)?,
-            _ => {}
-        };
+        if let Item::Fn(f) = item.get_contents()? {
+            state.compile_fun(*f)?;
+        }
     }
 
     state.instructions[current].set(|_| Ok(None));

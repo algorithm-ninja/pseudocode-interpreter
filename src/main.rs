@@ -30,7 +30,7 @@ fn print_error_with_location(s: &str, err: error::Error<parse::TextAst>) {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    let mut file = File::open(&args.source).expect("Unable to open file");
+    let mut file = File::open(args.source).expect("Unable to open file");
 
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");
