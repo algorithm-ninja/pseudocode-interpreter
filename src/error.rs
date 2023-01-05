@@ -13,6 +13,8 @@ pub enum Error<A: Ast> {
     GenericParseError(String, String, A::NodeInfo),
     #[error("parse error: unrecognized token {0} at position {1:?}")]
     UnrecognizedToken(String, A::NodeInfo),
+    #[error("internal parse error: {0}")]
+    PlaceholderParseError(String),
     #[error("error: unrecognized variable {0:?}")]
     UnrecognizedVariable(Ident<A>),
     #[error("error: unrecognized function {0:?}")]
@@ -58,6 +60,9 @@ impl<A: Ast> Error<A> {
         match self {
             Error::ParseError(_, _, n) => n,
             Error::GenericParseError(_, _, n) => n,
+            Error::PlaceholderParseError(_) => {
+                panic!("A PlaceholderParseError should never be returned")
+            }
             Error::UnrecognizedToken(_, n) => n,
             Error::UnrecognizedVariable(Ident { name: _, info: n }) => n,
             Error::UnrecognizedFunction(Ident { name: _, info: n }) => n,

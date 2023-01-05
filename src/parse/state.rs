@@ -17,7 +17,6 @@ struct ScopeState {
 #[derive(Debug)]
 struct NodeState {
     start_pos: usize,
-    id: usize,
     can_rollback: bool,
 }
 
@@ -236,80 +235,70 @@ impl<'a> ParserState<'a> {
         Ok(scope.types.get(&name).unwrap().clone())
     }
 
-    pub fn start_node(&mut self) -> usize {
-        let id = self.next_node_id;
-        self.next_node_id += 1;
-        self.node_state.push(NodeState {
-            start_pos: self.input_pos,
-            id,
-            can_rollback: true,
-        });
-        id
-    }
-
-    pub fn clone_node(&mut self, id: usize) -> usize {
-        let node = self
-            .node_state
-            .last()
-            .expect("Programming error: cloning a node while none are open");
-        assert!(node.id == id, "Programming error: cloning the wrong node");
-        let id = self.next_node_id;
-        self.next_node_id += 1;
-        self.node_state.push(NodeState {
-            start_pos: node.start_pos,
-            id,
-            can_rollback: true,
-        });
-        id
-    }
-
-    pub fn end_node<T: Debug + AstNode<T> + Clone>(
+    fn node_impl<T: Debug + AstNode<T> + Clone, F>(
         &mut self,
-        id: usize,
-        contents: T,
-    ) -> Node<TextAst, T> {
-        let node = self
-            .node_state
-            .pop()
-            .expect("Programming error: closing a node while none are open");
-        assert!(node.id == id, "Programming error: closing the wrong node");
-        assert!(
-            self.input_pos >= 1,
-            "Programming error: closing a node with no content"
-        );
-        let start = self.tokens[node.start_pos].1.start;
-        let end = self.tokens[self.input_pos - 1].1.end;
-        Node {
-            id: node.id,
-            contents,
-            info: start..end,
+        create: F,
+        start_pos: usize,
+    ) -> Result<Node<TextAst, T>>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.node_state.push(NodeState {
+            start_pos,
+            can_rollback: true,
+        });
+        let res = create(self);
+        let node = self.node_state.pop().unwrap();
+        if let Ok(res) = res {
+            assert!(
+                self.input_pos >= 1,
+                "Programming error: closing a node with no content"
+            );
+            let start = self.tokens[node.start_pos].1.start;
+            let end = self.tokens[self.input_pos - 1].1.end;
+            let id = self.next_node_id;
+            self.next_node_id += 1;
+            Ok(Node {
+                id,
+                contents: res,
+                info: start..end,
+            })
+        } else {
+            let err = res.unwrap_err();
+            let start = self.tokens[node.start_pos].1.start;
+            let end = self.tokens[self.input_pos].1.end;
+            if let Error::PlaceholderParseError(msg) = err {
+                Err(Error::GenericParseError(
+                    msg,
+                    self.input[start..end].to_owned(),
+                    start..end,
+                ))
+            } else {
+                Err(err)
+            }
         }
     }
 
-    pub fn fail_node(&mut self, id: usize, message: String) -> Result<()> {
-        let node = self
-            .node_state
-            .pop()
-            .expect("Programming error: closing a node while none are open");
-        assert!(node.id == id, "Programming error: closing the wrong node");
-        let start = self.tokens[node.start_pos].1.start;
-        let end = self.tokens[self.input_pos].1.end;
-        Err(Error::GenericParseError(
-            message,
-            self.input[start..end].to_owned(),
-            start..end,
-        ))
+    pub fn node<T: Debug + AstNode<T> + Clone, F>(&mut self, create: F) -> Result<Node<TextAst, T>>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.node_impl(create, self.input_pos)
     }
 
-    pub fn rollback_node(&mut self, id: usize) {
-        let node = self
-            .node_state
-            .pop()
-            .expect("Programming error: rolling back a node while none are open");
-        assert!(
-            node.id == id,
-            "Programming error: rolling back the wrong node"
-        );
+    pub fn clone_current_node<T: Debug + AstNode<T> + Clone, F>(
+        &mut self,
+        create: F,
+    ) -> Result<Node<TextAst, T>>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        let pos = self.node_state.last().unwrap().start_pos;
+        self.node_impl(create, pos)
+    }
+
+    pub fn rollback_current_node(&mut self) {
+        let node = self.node_state.pop().unwrap();
         self.input_pos = node.start_pos;
         self.node_state.push(node);
     }
