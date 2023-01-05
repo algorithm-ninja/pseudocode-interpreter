@@ -1,0 +1,22 @@
+function main()
+    variable i: integer
+    i <- 0
+
+    while i < 100 do
+        i <- i + 1
+
+        if (i mod 3) == 0 then
+            if (i mod 5) == 0 then
+                output("FizzBuzz")
+            else
+                output("Fizz")
+            end if
+        else
+            if (i mod 5) == 0 then
+                output("Buzz")
+            else
+                output(i)
+            end if
+        end if
+    end while
+end function
