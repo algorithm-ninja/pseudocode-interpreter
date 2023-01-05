@@ -6,6 +6,7 @@ fn get_operation(token: Token) -> Option<(BinaryOp, usize)> {
     match token {
         Token::And => Some((BinaryOp::And, 1)),
         Token::Or => Some((BinaryOp::Or, 1)),
+        Token::Eq => Some((BinaryOp::Eq, 2)),
         Token::Ne => Some((BinaryOp::Ne, 2)),
         Token::Ge => Some((BinaryOp::Ge, 2)),
         Token::Le => Some((BinaryOp::Le, 2)),
