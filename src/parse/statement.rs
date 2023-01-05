@@ -106,7 +106,7 @@ pub fn parse_block(
                     let arr = parse_expr(parser_state)?;
                     parser_state.require(Token::Do)?;
                     parser_state.require(Token::Newline)?;
-                    let (decl, block) = parse_block(parser_state, &vec![var.clone()])?;
+                    let (decl, block) = parse_block(parser_state, &vec![var])?;
                     parser_state.require(Token::End)?;
                     parser_state.require(Token::For)?;
                     parser_state.require(Token::Newline)?;
