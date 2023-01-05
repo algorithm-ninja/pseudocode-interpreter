@@ -1,0 +1,24 @@
+function isprime(x: integer) -> integer
+    if x < 2 then
+        return 0
+    end if
+
+    for i in [2...x) do
+        if (x mod i) == 0 then
+            return 0
+        end if
+
+        if i*i > x then
+            return 1
+        end if
+    end for
+    return 1
+end function
+
+function main()
+    for n in [0...100] do
+        if isprime(n) == 1 then
+            output(n)
+        end if
+    end for
+end function
