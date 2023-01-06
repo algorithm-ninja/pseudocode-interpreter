@@ -1,8 +1,8 @@
 use thiserror::Error;
 
 use crate::{
-    ast::{Ast, Ident, Type},
-    parse::Token,
+    ast::{Ast, Ident, Type, BinaryOp},
+    parse::Token
 };
 
 #[derive(Error, Debug)]
@@ -53,6 +53,10 @@ pub enum Error<A: Ast> {
     DidNotReturn(Ident<A>),
     #[error("runtime error: array out of bounds at {0:?} ({1:?}) - index is {2}, len is {3}")]
     ArrayOutOfBounds(usize, A::NodeInfo, i64, usize),
+    #[error("runtime error: result of {3} {2:?} {4} would overflow at {0:?} ({1:?})")]
+    Overflow(usize, A::NodeInfo, BinaryOp, i64, i64),
+    #[error("runtime error: division by zero at {0:?} ({1:?})")]
+    DivisionByZero(usize, A::NodeInfo)
 }
 
 impl<A: Ast> Error<A> {
@@ -83,6 +87,8 @@ impl<A: Ast> Error<A> {
             Error::WrongArgumentNumber(_, n, _) => n,
             Error::DidNotReturn(Ident { name: _, info: n }) => n,
             Error::ArrayOutOfBounds(_, n, _, _) => n,
+            Error::Overflow(_, n, _, _, _) => n,
+            Error::DivisionByZero(_, n) => n
         }
         .clone()
     }

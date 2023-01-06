@@ -189,40 +189,67 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         self.instructions[n].set(move |state| {
                             pop_variant!(LValue::Integer(op2), state);
                             pop_variant!(LValue::Integer(op1), state);
-                            state.lvalues.push(LValue::Integer(op1 + op2));
-                            Ok(Some(next))
+                            match op1.checked_add(op2) {
+                                Some(value) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                            }
                         });
                     }
                     (Type::Integer, BinaryOp::Sub, Type::Integer) => {
                         self.instructions[n].set(move |state| {
                             pop_variant!(LValue::Integer(op2), state);
                             pop_variant!(LValue::Integer(op1), state);
-                            state.lvalues.push(LValue::Integer(op1 - op2));
-                            Ok(Some(next))
+                            match op1.checked_sub(op2) {
+                                Some(value) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                            }
                         });
                     }
                     (Type::Integer, BinaryOp::Mul, Type::Integer) => {
                         self.instructions[n].set(move |state| {
                             pop_variant!(LValue::Integer(op2), state);
                             pop_variant!(LValue::Integer(op1), state);
-                            state.lvalues.push(LValue::Integer(op1 * op2));
-                            Ok(Some(next))
+                            match op1.checked_mul(op2) {
+                                Some(value) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                            }
                         });
                     }
                     (Type::Integer, BinaryOp::Div, Type::Integer) => {
                         self.instructions[n].set(move |state| {
                             pop_variant!(LValue::Integer(op2), state);
                             pop_variant!(LValue::Integer(op1), state);
-                            state.lvalues.push(LValue::Integer(op1 / op2));
-                            Ok(Some(next))
+                            match (op1.checked_div(op2), op2) {
+                                (Some(value), _) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                (None, 0) => Err(Error::DivisionByZero(expr.id, expr.info.clone())),
+                                (None, _) => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                            }
                         });
                     }
                     (Type::Integer, BinaryOp::Mod, Type::Integer) => {
                         self.instructions[n].set(move |state| {
                             pop_variant!(LValue::Integer(op2), state);
                             pop_variant!(LValue::Integer(op1), state);
-                            state.lvalues.push(LValue::Integer(op1 % op2));
-                            Ok(Some(next))
+                            match (op1.checked_rem(op2), op2) {
+                                (Some(value), _) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                (None, 0) => Err(Error::DivisionByZero(expr.id, expr.info.clone())),
+                                (None, _) => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                            }
                         });
                     }
                     (Type::Float, BinaryOp::Sum, Type::Float) => {
