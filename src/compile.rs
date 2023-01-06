@@ -551,7 +551,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     Ok(Some(next))
                 });
                 if let Type::Tuple(inner) = tty {
-                    if inner.len() >= *idx {
+                    if *idx >= inner.len() {
                         return Err(Error::InvalidTupleField(expr.id, expr.info.clone(), *idx));
                     }
                     inner[*idx].get_contents()?.clone()
@@ -647,7 +647,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     Ok(Some(next))
                 });
                 if let Type::Tuple(inner) = tty {
-                    if inner.len() >= *idx {
+                    if *idx >= inner.len() {
                         return Err(Error::InvalidTupleField(expr.id, expr.info.clone(), *idx));
                     }
                     inner[*idx].get_contents()?.clone()
