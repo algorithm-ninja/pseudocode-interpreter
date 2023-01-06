@@ -116,7 +116,7 @@ pub enum Token {
     #[regex("\"([^\"]|\\.)*\"")]
     StringLit,
 
-    #[regex("[a-zA-Z][a-zA-Z0-9]*")]
+    #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]
     Ident,
 
     // End of file.
