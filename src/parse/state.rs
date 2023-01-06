@@ -205,7 +205,7 @@ impl<'a> ParserState<'a> {
         if let Some(prev) = scope.variables.get(&decl.ident.name) {
             return Err(Error::DuplicateVariable(
                 decl.ident.clone(),
-                self.funs[prev.0].ident.clone(),
+                self.vars[prev.0].ident.clone(),
             ));
         }
         let idx = VarIndex(self.vars.len());
