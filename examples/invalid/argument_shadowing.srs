@@ -1,0 +1,8 @@
+function f(a: integer) -> integer
+    variable a: integer <- 2
+    return a
+end function
+
+function main()
+    output(f(3))
+end function

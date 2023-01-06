@@ -1,0 +1,4 @@
+function main()
+    variable a: (integer, integer) <- (1, 2)
+    output(a.2)
+end function
