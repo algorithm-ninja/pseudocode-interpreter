@@ -105,9 +105,9 @@ pub enum Token {
     Not,
 
     // Literals
-    #[regex("[0-9]+")]
+    #[regex("-?[0-9]+")]
     IntegerLit,
-    #[regex("[0-9]+\\.[0-9]+")]
+    #[regex("-?[0-9]+\\.[0-9]+")]
     FloatLit,
     #[token("true")]
     True,
