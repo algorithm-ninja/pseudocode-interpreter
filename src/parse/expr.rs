@@ -160,7 +160,12 @@ fn parse_expr_with_precedence(
             (Token::Not, _, _) => {
                 parser_state.require(Token::Not)?;
                 let expr = parse_expr_with_precedence(parser_state, usize::MAX)?;
-                Expr::Not(Box::new(expr))
+                Expr::UnaryOp(UnaryOp::Not, Box::new(expr))
+            }
+            (Token::Sub, _, _) => {
+                parser_state.require(Token::Sub)?;
+                let expr = parse_expr_with_precedence(parser_state, usize::MAX)?;
+                Expr::UnaryOp(UnaryOp::Neg, Box::new(expr))
             }
 
             (_, r, s) => {

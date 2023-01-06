@@ -145,6 +145,52 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 Type::Array(Box::new(Node::new_with_defaults(Type::Integer)))
             }
 
+            Expr::UnaryOp(op, e) => {
+                let (n, t) = self.compile_expr(e, local_lvalues, current)?;
+
+                match op {
+                    UnaryOp::Not => expect_type(&[&Type::Bool], e, &t)?,
+                    UnaryOp::Neg => expect_type(&[&Type::Integer, &Type::Float], e, &t)?,
+                };
+
+                match (op, &t) {
+                    (UnaryOp::Not, _) => {
+                        self.instructions[n].set(move |state| {
+                            pop_variant!(LValue::Bool(b), state);
+                            state.lvalues.push(LValue::Bool(!b));
+                            Ok(Some(next))
+                        });
+                    }
+                    (UnaryOp::Neg, Type::Integer) => {
+                        self.instructions[n].set(move |state| {
+                            pop_variant!(LValue::Integer(x), state);
+                            match x.checked_neg() {
+                                Some(value) => {
+                                    state.lvalues.push(LValue::Integer(value));
+                                    Ok(Some(next))
+                                }
+                                None => Err(Error::UnaryOverflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    x,
+                                )),
+                            }
+                        });
+                    }
+                    (UnaryOp::Neg, Type::Float) => {
+                        self.instructions[n].set(move |state| {
+                            pop_variant!(LValue::Float(x), state);
+                            state.lvalues.push(LValue::Float(-x));
+                            Ok(Some(next))
+                        });
+                    }
+                    _ => unreachable!("{:?} - {:?} {:?}", expr, op, t),
+                };
+
+                t
+            }
+
             Expr::BinaryOp(e1, op, e2) => {
                 let (n, t1) = self.compile_expr(e1, local_lvalues, current)?;
                 let (n, t2) = self.compile_expr(e2, local_lvalues + 1, n)?;
@@ -563,16 +609,6 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 t
             }
 
-            Expr::Not(e) => {
-                let (n, t) = self.compile_expr(e, local_lvalues, current)?;
-                expect_type(&[&Type::Bool], e, &t)?;
-                self.instructions[n].set(move |state| {
-                    pop_variant!(LValue::Bool(b), state);
-                    state.lvalues.push(LValue::Bool(!b));
-                    Ok(Some(next))
-                });
-                Type::Bool
-            }
             Expr::ArrayIndex(aexpr, iexpr) => {
                 let (n, aty) = self.compile_expr(aexpr, local_lvalues, current)?;
                 let (n, ity) = self.compile_expr(iexpr, local_lvalues + 1, n)?;

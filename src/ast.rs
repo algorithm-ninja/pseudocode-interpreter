@@ -61,6 +61,12 @@ impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
 }
 
 #[derive(Debug, Clone)]
+pub enum UnaryOp {
+    Not,
+    Neg,
+}
+
+#[derive(Debug, Clone)]
 pub enum BinaryOp {
     Sum,
     Sub,
@@ -180,8 +186,8 @@ pub enum Expr<A: Ast> {
     NamedTuple(Vec<(Ident<A>, ExprNode<A>)>),
     Range(Box<ExprNode<A>>, Box<ExprNode<A>>, RangeType),
     Parens(Box<ExprNode<A>>),
+    UnaryOp(UnaryOp, Box<ExprNode<A>>),
     BinaryOp(Box<ExprNode<A>>, BinaryOp, Box<ExprNode<A>>),
-    Not(Box<ExprNode<A>>),
     ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
     FunctionCall(FnIndex, Vec<ExprNode<A>>),
     MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),

@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::{
-    ast::{Ast, BinaryOp, Ident, Type},
+    ast::{Ast, BinaryOp, Ident, Type, UnaryOp},
     parse::Token,
 };
 
@@ -55,6 +55,8 @@ pub enum Error<A: Ast> {
     ArrayOutOfBounds(usize, A::NodeInfo, i64, usize),
     #[error("runtime error: result of {3} {2:?} {4} would overflow at {0:?} ({1:?})")]
     Overflow(usize, A::NodeInfo, BinaryOp, i64, i64),
+    #[error("runtime error: result of {2:?} {3} would overflow at {0:?} ({1:?})")]
+    UnaryOverflow(usize, A::NodeInfo, UnaryOp, i64),
     #[error("runtime error: division by zero at {0:?} ({1:?})")]
     DivisionByZero(usize, A::NodeInfo),
 }
@@ -88,6 +90,7 @@ impl<A: Ast> Error<A> {
             Error::DidNotReturn(Ident { name: _, info: n }) => n,
             Error::ArrayOutOfBounds(_, n, _, _) => n,
             Error::Overflow(_, n, _, _, _) => n,
+            Error::UnaryOverflow(_, n, _, _) => n,
             Error::DivisionByZero(_, n) => n,
         }
         .clone()
