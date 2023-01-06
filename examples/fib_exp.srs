@@ -29,7 +29,7 @@ function mat_pow(mat: Mat, n: integer) -> Mat
 end function
 
 function main()
-    for n in [0...100) do
+    for n in [0...64) do
         variable Fn: integer <- mat_pow((1, 1, 1, 0), n).2
         output(Fn)
     end for
