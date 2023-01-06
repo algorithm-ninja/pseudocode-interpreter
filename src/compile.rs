@@ -194,7 +194,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                                     state.lvalues.push(LValue::Integer(value));
                                     Ok(Some(next))
                                 }
-                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                                None => Err(Error::Overflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    op1,
+                                    op2,
+                                )),
                             }
                         });
                     }
@@ -207,7 +213,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                                     state.lvalues.push(LValue::Integer(value));
                                     Ok(Some(next))
                                 }
-                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                                None => Err(Error::Overflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    op1,
+                                    op2,
+                                )),
                             }
                         });
                     }
@@ -220,7 +232,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                                     state.lvalues.push(LValue::Integer(value));
                                     Ok(Some(next))
                                 }
-                                None => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                                None => Err(Error::Overflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    op1,
+                                    op2,
+                                )),
                             }
                         });
                     }
@@ -234,7 +252,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                                     Ok(Some(next))
                                 }
                                 (None, 0) => Err(Error::DivisionByZero(expr.id, expr.info.clone())),
-                                (None, _) => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                                (None, _) => Err(Error::Overflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    op1,
+                                    op2,
+                                )),
                             }
                         });
                     }
@@ -248,7 +272,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                                     Ok(Some(next))
                                 }
                                 (None, 0) => Err(Error::DivisionByZero(expr.id, expr.info.clone())),
-                                (None, _) => Err(Error::Overflow(expr.id, expr.info.clone(), op.clone(), op1, op2))
+                                (None, _) => Err(Error::Overflow(
+                                    expr.id,
+                                    expr.info.clone(),
+                                    op.clone(),
+                                    op1,
+                                    op2,
+                                )),
                             }
                         });
                     }
