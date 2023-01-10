@@ -1,3 +1,4 @@
+use std::hash::{Hash, Hasher};
 use std::{
     fmt::Debug,
     sync::{Arc, Weak},
@@ -36,6 +37,23 @@ pub struct Node<A: Ast, T: Debug + AstNode<T> + Clone> {
     pub contents: A::NodeWrapper<T>,
 }
 
+impl<A: Ast, T: Debug + AstNode<T> + Clone> Hash for Node<A, T> {
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: Hasher,
+    {
+        h.write_usize(self.id);
+    }
+}
+
+impl<A: Ast, T: Debug + AstNode<T> + Clone> PartialEq for Node<A, T> {
+    fn eq(&self, oth: &Self) -> bool {
+        self.id == oth.id
+    }
+}
+
+impl<A: Ast, T: Debug + AstNode<T> + Clone> Eq for Node<A, T> {}
+
 impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
     pub fn get_contents(&self) -> Result<&T, Error<A>> {
         self.contents
@@ -60,13 +78,13 @@ impl<A: Ast, T: Debug + AstNode<T> + Clone> Node<A, T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnaryOp {
     Not,
     Neg,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinaryOp {
     Sum,
     Sub,
@@ -203,7 +221,8 @@ pub enum Statement<A: Ast> {
     Assign(ExprNode<A>, ExprNode<A>),
     If(ExprNode<A>, Block<A>, Block<A>),
     While(ExprNode<A>, Block<A>),
-    For(VarIndex, ExprNode<A>, Block<A>),
+    // The last two elements are placeholders for implicit variables/expressions.
+    For(VarIndex, ExprNode<A>, Block<A>, VarIndex, ExprNode<A>),
     Return(Option<ExprNode<A>>),
     Expr(ExprNode<A>),
 }

@@ -1,5 +1,4 @@
 use clap::Parser;
-use clap_derive::Parser;
 use pseudocode_interpreter::eval::ProgramState;
 
 use std::fs::File;
@@ -13,6 +12,10 @@ use pseudocode_interpreter::parse;
 
 #[derive(Parser)]
 struct Args {
+    /// Print debugging information during execution.
+    #[arg(short, long, default_value_t = false)]
+    debug: bool,
+
     /// Pseudocode source file.
     source: String,
 }
@@ -39,11 +42,21 @@ fn main() -> Result<()> {
         let a = parse::parse(src)?;
         let compiled = compile::compile(&a)?;
         {
+            let mut next_print = 0;
             let mut state = ProgramState::new(compiled)?;
             while !state.eval_step()? {}
+            let mut current = 0;
             state.evaluate_fun("main", &[])?;
+            if args.debug {
+                println!("before start: {:?}\n\n", state.stack_frames());
+            }
             while !state.eval_step()? {
-                // println!("{:?}", state);
+                if next_print <= current && args.debug {
+                    next_print += current + 1;
+                    // next_print += 1;
+                    println!("{:?}\n\n", state.stack_frames());
+                }
+                current += 1;
             }
             for line in state.stdout() {
                 println!("{line}");

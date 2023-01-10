@@ -98,7 +98,7 @@ pub fn parse_block(
                         parse_type(parser_state)?
                     };
                     let var = VarDecl {
-                        ident,
+                        ident: ident.clone(),
                         ty,
                         val: None,
                     };
@@ -110,7 +110,25 @@ pub fn parse_block(
                     parser_state.require(Token::End)?;
                     parser_state.require(Token::For)?;
                     parser_state.require(Token::Newline)?;
-                    Ok(Statement::For(decl[0], arr, block))
+
+                    // Create a temporary variable for holding the iteration index.
+                    parser_state.start_scope();
+                    let ty = parser_state.node(|_| Ok(Type::Integer))?;
+                    let placeholder_var_idx = parser_state.add_var(VarDecl {
+                        ident,
+                        ty,
+                        val: None,
+                    })?;
+                    parser_state.end_scope();
+                    Ok(Statement::For(
+                        decl[0],
+                        arr,
+                        block,
+                        // placeholder for iteration index
+                        placeholder_var_idx,
+                        // placeholder for end-of-loop condition
+                        parser_state.node(|_| Ok(Expr::Bool(true)))?,
+                    ))
                 })?);
             }
             (Token::Return, _, _) => {

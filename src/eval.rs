@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    ast::{Ast, FnIndex, Ident, Item, Program},
+    ast::{Ast, Expr, FnIndex, Ident, Item, Node, Program, VarIndex},
     error::Error,
     value::{LValue, RValue},
 };
@@ -14,15 +14,6 @@ pub type Result<T, A> = std::result::Result<T, Error<A>>;
 
 pub type Ip = usize;
 
-#[derive(Clone, Debug)]
-pub struct ProgramState<'a, A: Ast> {
-    pub ip: Vec<Ip>,
-    pub lvalues: Vec<LValue>,
-    pub rvalues: Vec<RValue>,
-    pub stdout: Vec<String>,
-    program: Rc<CompiledProgram<'a, A>>,
-}
-
 type InstructionFn<'a, A> = Box<dyn Fn(&mut ProgramState<'a, A>) -> Result<Option<Ip>, A> + 'a>;
 
 pub struct Instruction<'a, A: Ast> {
@@ -30,16 +21,11 @@ pub struct Instruction<'a, A: Ast> {
 }
 
 impl<'a, A: Ast> Instruction<'a, A> {
-    pub fn placeholder() -> Instruction<'a, A> {
-        Instruction {
-            run: Box::new(|_| unreachable!("unreplaced placeholder")),
-        }
-    }
-    pub fn set<F>(&mut self, f: F)
+    pub fn new<F>(f: F) -> Instruction<'a, A>
     where
         F: Fn(&mut ProgramState<'a, A>) -> Result<Option<Ip>, A> + 'a,
     {
-        self.run = Box::new(f);
+        Instruction { run: Box::new(f) }
     }
 }
 
@@ -50,11 +36,65 @@ impl<'a, A: Ast> Debug for Instruction<'a, A> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ProgramState<'a, A: Ast> {
+    pub ip: Vec<Ip>,
+    pub lvalues: Vec<LValue>,
+    pub rvalues: Vec<RValue>,
+    pub stdout: Vec<String>,
+    program: Rc<CompiledProgram<'a, A>>,
+}
+
+#[derive(Debug)]
+pub enum ExprValue {
+    LValue(LValue),
+    RValue(RValue),
+}
+
+#[derive(Debug)]
+pub struct StackFrame<'a, A: Ast> {
+    pub fun: Option<&'a Node<A, Item<A>>>,
+    pub current_expr: Option<&'a Node<A, Expr<A>>>,
+    pub variables: HashMap<VarIndex, LValue>,
+    pub temporaries: HashMap<&'a Node<A, Expr<A>>, ExprValue>,
+}
+
+#[derive(Debug)]
+pub enum TemporaryIndex {
+    LValue(usize),
+    RValue(usize),
+}
+
+#[derive(Debug)]
+pub struct DebugInfo<'a, A: Ast> {
+    pub fun: Option<&'a Node<A, Item<A>>>,
+    pub current_expr: Option<&'a Node<A, Expr<A>>>,
+    pub variables: HashMap<VarIndex, usize>,
+    pub temporaries: HashMap<&'a Node<A, Expr<A>>, TemporaryIndex>,
+}
+
+impl<'a, A: Ast> DebugInfo<'a, A> {
+    pub fn num_lstack(&self) -> usize {
+        self.variables.len()
+            + self
+                .temporaries
+                .iter()
+                .filter(|(_, x)| matches!(x, TemporaryIndex::LValue(_)))
+                .count()
+    }
+
+    pub fn num_rstack(&self) -> usize {
+        self.temporaries.len() + self.variables.len() - self.num_lstack()
+    }
+}
+
 #[derive(Debug)]
 pub struct CompiledProgram<'a, A: Ast> {
     pub instructions: Vec<Instruction<'a, A>>,
     pub ini_entry_point: usize,
     pub fn_entry_point: HashMap<FnIndex, usize>,
+    pub instruction_debug_info: Vec<DebugInfo<'a, A>>,
+    pub global_vars_debug_info: DebugInfo<'a, A>,
     pub ast: &'a Program<A>,
 }
 
@@ -131,5 +171,80 @@ impl<'a, A: Ast> ProgramState<'a, A> {
 
     pub fn stdout(&self) -> &Vec<String> {
         &self.stdout
+    }
+
+    pub fn stack_frames(&self) -> Vec<StackFrame<'a, A>> {
+        let mut num_lvalues = self.lvalues.len();
+        let mut num_rvalues = self.rvalues.len();
+        let mut ret = vec![];
+
+        let get_lvalue = |is_leaf: bool, dinfo_offset: usize, num_lvalues: usize| {
+            if !is_leaf && dinfo_offset == 0 {
+                return None;
+            }
+            let index = if is_leaf {
+                dinfo_offset
+            } else {
+                dinfo_offset - 1
+            };
+            Some(self.lvalues[num_lvalues - index - 1].clone())
+        };
+
+        let mut frame_from_deb_info = |debug_info: &DebugInfo<'a, A>, is_leaf: bool| {
+            let variables: HashMap<_, _> = debug_info
+                .variables
+                .iter()
+                .filter_map(|(k, v)| get_lvalue(is_leaf, *v, num_lvalues).map(|x| (*k, x)))
+                .collect();
+
+            let temporaries: HashMap<_, _> = debug_info
+                .temporaries
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    TemporaryIndex::LValue(lv) => {
+                        get_lvalue(is_leaf, *lv, num_lvalues).map(|x| (*k, ExprValue::LValue(x)))
+                    }
+                    TemporaryIndex::RValue(rv) => Some((
+                        *k,
+                        ExprValue::RValue(self.rvalues[num_rvalues - rv - 1].clone()),
+                    )),
+                })
+                .collect();
+
+            let frame = StackFrame {
+                fun: debug_info.fun,
+                variables,
+                temporaries,
+                current_expr: if is_leaf {
+                    None
+                } else {
+                    debug_info.current_expr
+                },
+            };
+            // Anything not at the bottom of the stack has an extra entry for the return value of
+            // the callee.
+            num_lvalues = num_lvalues
+                .checked_sub(debug_info.num_lstack() - if is_leaf { 0 } else { 1 })
+                .unwrap();
+            num_rvalues = num_rvalues.checked_sub(debug_info.num_rstack()).unwrap();
+            frame
+        };
+
+        for (idx, ip) in self.ip.iter().rev().enumerate() {
+            let debug_info = &self.program.instruction_debug_info[*ip];
+            ret.push(frame_from_deb_info(debug_info, idx == 0));
+        }
+
+        ret.push(frame_from_deb_info(
+            &self.program.global_vars_debug_info,
+            true,
+        ));
+
+        assert!(num_rvalues == 0);
+        assert!(num_lvalues == 0);
+
+        // Return stack frames top to bottom.
+        ret.reverse();
+        ret
     }
 }
