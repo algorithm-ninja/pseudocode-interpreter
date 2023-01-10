@@ -55,9 +55,7 @@ impl<'a, A: Ast> OperationInput<'a, A> for () {
     fn count_rvalues(_: &Self::InputInfo) -> usize {
         0
     }
-    fn get(_: &Self::InputInfo, _: &mut ProgramState<'a, A>) -> Self {
-        ()
-    }
+    fn get(_: &Self::InputInfo, _: &mut ProgramState<'a, A>) -> Self {}
 }
 
 impl<'a, A: Ast> OperationInput<'a, A> for bool {

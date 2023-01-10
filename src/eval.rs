@@ -224,7 +224,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             // Anything not at the bottom of the stack has an extra entry for the return value of
             // the callee.
             num_lvalues = num_lvalues
-                .checked_sub(debug_info.num_lstack() - if is_leaf { 0 } else { 1 })
+                .checked_sub(debug_info.num_lstack() - !is_leaf as usize)
                 .unwrap();
             num_rvalues = num_rvalues.checked_sub(debug_info.num_rstack()).unwrap();
             frame

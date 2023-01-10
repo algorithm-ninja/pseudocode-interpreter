@@ -864,7 +864,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         let LValue::Tuple(lval) = a else {
                             panic!("Not a tuple");
                         };
-                        Ok(lval[*idx as usize].clone())
+                        Ok(lval[*idx].clone())
                     },
                     (),
                     Some(expr),
@@ -905,7 +905,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         let LValue::NamedTuple(lval) = a else {
                             panic!("Not a tuple");
                         };
-                        Ok(lval[idx as usize].clone())
+                        Ok(lval[idx].clone())
                     },
                     (),
                     Some(expr),
@@ -914,7 +914,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
             }
             Expr::MethodCall(_, _, _) => todo!(),
         };
-        Ok(ty.canonical_type()?)
+        ty.canonical_type()
     }
 
     fn compile_expr_rvalue(&mut self, expr: &'a Node<A, Expr<A>>) -> Result<Type<A>, A> {
@@ -1020,7 +1020,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 return Err(Error::NotAssignable(expr.id, expr.info.clone()));
             }
         };
-        Ok(ty.canonical_type()?)
+        ty.canonical_type()
     }
 
     fn compile_block<'b>(
