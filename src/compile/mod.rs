@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, rc::Rc, sync::Arc, vec};
+use std::{collections::HashMap, fmt::Debug, mem::swap, rc::Rc, sync::Arc, vec};
 
 use ordered_float::NotNan;
 
@@ -133,15 +133,17 @@ struct ProgramCompilationState<'a, A: Ast> {
     instruction_debug_info: Vec<DebugInfo<'a, A>>,
     program: &'a Program<A>,
     current: usize,
+    last_expr: Option<&'a Node<A, Expr<A>>>,
 }
 
 impl<'a, A: Ast> ProgramCompilationState<'a, A> {
     /// Adds an instruction and the corresponding debug information at current program state.
     /// Creates a new instruction with address given by `next_instruction()`.
-    fn add_instruction<F>(&mut self, f: F, expr: Option<&'a Node<A, Expr<A>>>)
+    fn add_instruction<F>(&mut self, f: F, mut expr: Option<&'a Node<A, Expr<A>>>)
     where
         F: Fn(&mut ProgramState<'a, A>) -> Result<Option<Ip>, A> + 'a,
     {
+        swap(&mut self.last_expr, &mut expr);
         self.instructions[self.current] = Instruction::new(f);
         self.instruction_debug_info[self.current] =
             self.stack_state.debug_info(expr, self.num_global_vars);
@@ -1228,6 +1230,7 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
         instruction_debug_info: vec![],
         program,
         current: 0,
+        last_expr: None,
     };
 
     state.ini_entry_point = state.add_placeholder();
