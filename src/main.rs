@@ -62,21 +62,20 @@ fn print_stack_frame<'a>(program: &'a Program<TextAst>, frame: StackFrame<'a, Te
     }
 
     replacements.sort_by(|a, b| {
-        if a.0 < b.0 {
-            Ordering::Less
-        } else if a.0 > b.0 {
-            Ordering::Greater
-        } else {
-            // a.0 == b.0
-            // First 0-length replacements, then all the others in decreasing order of length.
-            if a.1 == a.0 && b.1 == b.0 {
-                Ordering::Equal
-            } else if a.1 == a.0 {
-                Ordering::Less
-            } else if b.1 == b.0 {
-                Ordering::Greater
-            } else {
-                b.1.cmp(&a.1)
+        match a.0.cmp(&b.0) {
+            Ordering::Less => Ordering::Less,
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Equal => {
+                // First 0-length replacements, then all the others in decreasing order of length.
+                if a.1 == a.0 && b.1 == b.0 {
+                    Ordering::Equal
+                } else if a.1 == a.0 {
+                    Ordering::Less
+                } else if b.1 == b.0 {
+                    Ordering::Greater
+                } else {
+                    b.1.cmp(&a.1)
+                }
             }
         }
     });
