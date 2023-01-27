@@ -59,10 +59,10 @@ impl Default for LValue {
 impl Display for LValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LValue::Integer(value) => write!(f, "{}", value),
-            LValue::Float(value) => write!(f, "{}", value),
-            LValue::String(value) => write!(f, "{}", value),
-            LValue::Bool(value) => write!(f, "{}", value),
+            LValue::Integer(value) => write!(f, "{value}"),
+            LValue::Float(value) => write!(f, "{value}"),
+            LValue::String(value) => write!(f, "{value}"),
+            LValue::Bool(value) => write!(f, "{value}"),
             LValue::Array(value) => {
                 write!(f, "[{}]", value.iter().map(|x| x.to_string()).join(","))
             }
@@ -73,7 +73,7 @@ impl Display for LValue {
                 write!(
                     f,
                     "{{{}}}",
-                    value.iter().map(|(k, v)| format!("{}->{}", k, v)).join(",")
+                    value.iter().map(|(k, v)| format!("{k}->{v}")).join(",")
                 )
             }
             LValue::Tuple(value) | LValue::NamedTuple(value) => {
