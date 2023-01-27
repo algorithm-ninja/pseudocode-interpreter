@@ -46,6 +46,7 @@ pub struct ParserState<'a> {
 impl<'a> ParserState<'a> {
     pub fn new(input: &'a str) -> ParserState<'a> {
         let mut tokens: Vec<_> = Token::lexer(input).spanned().collect();
+        tokens.push((Token::Newline, input.len()..input.len()));
         tokens.push((Token::Eos, input.len()..input.len()));
         ParserState {
             input,
