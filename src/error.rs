@@ -65,7 +65,9 @@ pub enum Error<A: Ast> {
     NextStringFailed(usize, A::NodeInfo),
     #[error("runtime error: next_int called at {0:?} ({1:?}) with no input left")]
     NextIntFailed(usize, A::NodeInfo),
-    #[error("runtime error: next_int called at {0:?} ({1:?}) but no integer could be parsed from {2:?}")]
+    #[error(
+        "runtime error: next_int called at {0:?} ({1:?}) but no integer could be parsed from {2:?}"
+    )]
     NextIntParsingFailed(usize, A::NodeInfo, String),
 }
 

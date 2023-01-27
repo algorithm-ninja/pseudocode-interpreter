@@ -101,7 +101,10 @@ pub struct CompiledProgram<'a, A: Ast> {
 }
 
 impl<'a, A: Ast> ProgramState<'a, A> {
-    pub fn new(program: Rc<CompiledProgram<'a, A>>, input: Vec<String>) -> Result<ProgramState<'a, A>, A> {
+    pub fn new(
+        program: Rc<CompiledProgram<'a, A>>,
+        input: Vec<String>,
+    ) -> Result<ProgramState<'a, A>, A> {
         let mut program_state = ProgramState {
             ip: vec![],
             lvalues: vec![],

@@ -196,7 +196,9 @@ fn parse_expr_with_precedence(
                 parser_state.require(Token::OpenP)?;
                 parser_state.require(Token::ClosedP)?;
                 // Placeholder for the return expression
-                Expr::NextString(Box::new(parser_state.node(|_| Ok(Expr::String("".to_owned())))?))
+                Expr::NextString(Box::new(
+                    parser_state.node(|_| Ok(Expr::String("".to_owned())))?,
+                ))
             }
             (Token::HasInt, _, _) => {
                 parser_state.require(Token::HasInt)?;
