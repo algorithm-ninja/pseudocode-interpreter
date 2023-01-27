@@ -822,6 +822,16 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 Type::Integer
             }
 
+            Expr::ToString(e) => {
+                self.compile_expr(e)?;
+                self.add_operation(
+                    |_, val: LValue| Ok(LValue::String(Arc::new(val.to_string()))),
+                    (),
+                    Some(expr),
+                );
+                Type::String
+            }
+
             Expr::FunctionCall(fun, args) => {
                 let f = self.program.fun(*fun);
                 if args.len() != f.args.len() {

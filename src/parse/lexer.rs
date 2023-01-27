@@ -83,6 +83,8 @@ pub enum Token {
     HasInt,
     #[token("next_int")]
     NextInt,
+    #[token("to_string")]
+    ToString,
 
     // Operators
     #[token("<-")]

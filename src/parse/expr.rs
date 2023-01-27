@@ -208,6 +208,13 @@ fn parse_expr_with_precedence(
                 parser_state.require(Token::ClosedP)?;
                 Expr::NextInt
             }
+            (Token::ToString, _, _) => {
+                parser_state.require(Token::ToString)?;
+                parser_state.require(Token::OpenP)?;
+                let expr = parse_expr(parser_state)?;
+                parser_state.require(Token::ClosedP)?;
+                Expr::ToString(Box::new(expr))
+            }
             (Token::Not, _, _) => {
                 parser_state.require(Token::Not)?;
                 let expr = parse_expr_with_precedence(parser_state, usize::MAX)?;

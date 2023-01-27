@@ -221,6 +221,7 @@ pub enum Expr<A: Ast> {
     NextString,
     HasInt,
     NextInt,
+    ToString(Box<ExprNode<A>>),
 }
 
 #[derive(Debug, Clone)]

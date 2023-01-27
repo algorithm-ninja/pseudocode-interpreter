@@ -1,9 +1,11 @@
 function main()
+    variable i: integer <- 1
     while has_string() do
         if has_int() then
-            output(next_int())
+            output("Case #" + to_string(i) + ": " + to_string(next_int()))
         else
-            output(next_string())
+            output("Case #" + to_string(i) + ": " + next_string())
         end if
+        i <- i + 1
     end while
 end function
