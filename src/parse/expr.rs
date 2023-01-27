@@ -157,6 +157,33 @@ fn parse_expr_with_precedence(
                 parser_state.require(Token::ClosedP)?;
                 Expr::Output(Box::new(expr))
             }
+            (Token::Min, _, _) => {
+                parser_state.require(Token::Min)?;
+                parser_state.require(Token::OpenP)?;
+                let e1 = parse_expr(parser_state)?;
+                parser_state.require(Token::Comma)?;
+                let e2 = parse_expr(parser_state)?;
+                parser_state.require(Token::ClosedP)?;
+                Expr::Min(Box::new(e1), Box::new(e2))
+            }
+            (Token::Max, _, _) => {
+                parser_state.require(Token::Max)?;
+                parser_state.require(Token::OpenP)?;
+                let e1 = parse_expr(parser_state)?;
+                parser_state.require(Token::Comma)?;
+                let e2 = parse_expr(parser_state)?;
+                parser_state.require(Token::ClosedP)?;
+                Expr::Max(Box::new(e1), Box::new(e2))
+            }
+            (Token::Repeat, _, _) => {
+                parser_state.require(Token::Repeat)?;
+                parser_state.require(Token::OpenP)?;
+                let e1 = parse_expr(parser_state)?;
+                parser_state.require(Token::Comma)?;
+                let e2 = parse_expr(parser_state)?;
+                parser_state.require(Token::ClosedP)?;
+                Expr::Repeat(Box::new(e1), Box::new(e2))
+            }
             (Token::Not, _, _) => {
                 parser_state.require(Token::Not)?;
                 let expr = parse_expr_with_precedence(parser_state, usize::MAX)?;

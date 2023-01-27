@@ -1,0 +1,9 @@
+function main()
+    output(max(41, min(5, 7)))
+    output(max(4.5, -1.0))
+    output(min(0.0, -100.0))
+
+    output(repeat(1, 5))
+    output(repeat(1.0 / 2.0, 10 * 2 - 18))
+    output(repeat(["test"], 5))
+end function

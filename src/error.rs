@@ -59,6 +59,8 @@ pub enum Error<A: Ast> {
     UnaryOverflow(usize, A::NodeInfo, UnaryOp, i64),
     #[error("runtime error: division by zero at {0:?} ({1:?})")]
     DivisionByZero(usize, A::NodeInfo),
+    #[error("runtime error: cannot repeat {2:?} times at {0:?} ({1:?})")]
+    RepeatNegativeAmount(usize, A::NodeInfo, i64),
 }
 
 impl<A: Ast> Error<A> {
@@ -92,6 +94,7 @@ impl<A: Ast> Error<A> {
             Error::Overflow(_, n, _, _, _) => n,
             Error::UnaryOverflow(_, n, _, _) => n,
             Error::DivisionByZero(_, n) => n,
+            Error::RepeatNegativeAmount(_, n, _) => n,
         }
         .clone()
     }

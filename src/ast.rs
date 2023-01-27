@@ -209,9 +209,14 @@ pub enum Expr<A: Ast> {
     ArrayIndex(Box<ExprNode<A>>, Box<ExprNode<A>>),
     FunctionCall(FnIndex, Vec<ExprNode<A>>),
     MethodCall(Box<ExprNode<A>>, Ident<A>, Vec<ExprNode<A>>),
-    Output(Box<ExprNode<A>>),
     TupleField(Box<ExprNode<A>>, usize),
     NamedTupleField(Box<ExprNode<A>>, Ident<A>),
+
+    // TODO(dp1): handle builtins better
+    Output(Box<ExprNode<A>>),
+    Min(Box<ExprNode<A>>, Box<ExprNode<A>>),
+    Max(Box<ExprNode<A>>, Box<ExprNode<A>>),
+    Repeat(Box<ExprNode<A>>, Box<ExprNode<A>>),
 }
 
 #[derive(Debug, Clone)]

@@ -69,6 +69,12 @@ pub enum Token {
     Then,
     #[token("output")]
     Output,
+    #[token("min")]
+    Min,
+    #[token("max")]
+    Max,
+    #[token("repeat")]
+    Repeat,
 
     // Operators
     #[token("<-")]

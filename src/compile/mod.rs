@@ -700,6 +700,73 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 Type::Void
             }
 
+            Expr::Min(e1, e2) => {
+                let t1 = self.compile_expr(e1)?;
+                let t2 = self.compile_expr(e2)?;
+
+                expect_type(&[&Type::Integer, &Type::Float], e1, &t1)?;
+                expect_type(&[&t1], e2, &t2)?;
+
+                match (&t1, &t2) {
+                    (Type::Integer, Type::Integer) => self.add_operation(
+                        move |_, (x, y): (i64, i64)| Ok(x.min(y)),
+                        (),
+                        Some(expr),
+                    ),
+                    (Type::Float, Type::Float) => self.add_operation(
+                        move |_, (x, y): (NotNan<f64>, NotNan<f64>)| Ok(x.min(y)),
+                        (),
+                        Some(expr),
+                    ),
+                    _ => unreachable!("{:?} - {:?} {:?}", expr, e1, e2),
+                }
+                t1
+            }
+
+            Expr::Max(e1, e2) => {
+                let t1 = self.compile_expr(e1)?;
+                let t2 = self.compile_expr(e2)?;
+
+                expect_type(&[&Type::Integer, &Type::Float], e1, &t1)?;
+                expect_type(&[&t1], e2, &t2)?;
+
+                match (&t1, &t2) {
+                    (Type::Integer, Type::Integer) => self.add_operation(
+                        move |_, (x, y): (i64, i64)| Ok(x.max(y)),
+                        (),
+                        Some(expr),
+                    ),
+                    (Type::Float, Type::Float) => self.add_operation(
+                        move |_, (x, y): (NotNan<f64>, NotNan<f64>)| Ok(x.max(y)),
+                        (),
+                        Some(expr),
+                    ),
+                    _ => unreachable!("{:?} - {:?} {:?}", expr, e1, e2),
+                }
+                t1
+            }
+
+            Expr::Repeat(v, n) => {
+                let tv = self.compile_expr(v)?;
+                let tn = self.compile_expr(n)?;
+
+                expect_type(&[&Type::Integer], n, &tn)?;
+
+                self.add_operation(
+                    |_, (v, n): (LValue, i64)| {
+                        if n >= 0 {
+                            Ok(LValue::Array((0..n).map(|_| v.clone()).collect()))
+                        } else {
+                            Err(Error::RepeatNegativeAmount(expr.id, expr.info.clone(), n))
+                        }
+                    },
+                    (),
+                    Some(expr),
+                );
+
+                Type::Array(Box::new(Node::new_with_defaults(tv)))
+            }
+
             Expr::FunctionCall(fun, args) => {
                 let f = self.program.fun(*fun);
                 if args.len() != f.args.len() {
