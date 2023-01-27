@@ -217,11 +217,10 @@ pub enum Expr<A: Ast> {
     Min(Box<ExprNode<A>>, Box<ExprNode<A>>),
     Max(Box<ExprNode<A>>, Box<ExprNode<A>>),
     Repeat(Box<ExprNode<A>>, Box<ExprNode<A>>),
-    // The ExprNode is a placeholder for the return expression in all input operations
-    HasString(Box<ExprNode<A>>),
-    NextString(Box<ExprNode<A>>),
-    HasInt(Box<ExprNode<A>>),
-    NextInt(Box<ExprNode<A>>),
+    HasString,
+    NextString,
+    HasInt,
+    NextInt,
 }
 
 #[derive(Debug, Clone)]

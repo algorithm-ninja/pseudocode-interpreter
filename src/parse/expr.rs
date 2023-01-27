@@ -188,31 +188,25 @@ fn parse_expr_with_precedence(
                 parser_state.require(Token::HasString)?;
                 parser_state.require(Token::OpenP)?;
                 parser_state.require(Token::ClosedP)?;
-                // Placeholder for the return expression
-                Expr::HasString(Box::new(parser_state.node(|_| Ok(Expr::Bool(true)))?))
+                Expr::HasString
             }
             (Token::NextString, _, _) => {
                 parser_state.require(Token::NextString)?;
                 parser_state.require(Token::OpenP)?;
                 parser_state.require(Token::ClosedP)?;
-                // Placeholder for the return expression
-                Expr::NextString(Box::new(
-                    parser_state.node(|_| Ok(Expr::String("".to_owned())))?,
-                ))
+                Expr::NextString
             }
             (Token::HasInt, _, _) => {
                 parser_state.require(Token::HasInt)?;
                 parser_state.require(Token::OpenP)?;
                 parser_state.require(Token::ClosedP)?;
-                // Placeholder for the return expression
-                Expr::HasInt(Box::new(parser_state.node(|_| Ok(Expr::Bool(true)))?))
+                Expr::HasInt
             }
             (Token::NextInt, _, _) => {
                 parser_state.require(Token::NextInt)?;
                 parser_state.require(Token::OpenP)?;
                 parser_state.require(Token::ClosedP)?;
-                // Placeholder for the return expression
-                Expr::NextInt(Box::new(parser_state.node(|_| Ok(Expr::Integer(0)))?))
+                Expr::NextInt
             }
             (Token::Not, _, _) => {
                 parser_state.require(Token::Not)?;

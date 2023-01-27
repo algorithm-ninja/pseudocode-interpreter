@@ -766,16 +766,16 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 Type::Array(Box::new(Node::new_with_defaults(tv)))
             }
 
-            Expr::HasString(placeholder) => {
+            Expr::HasString => {
                 self.add_operation(
                     |state, _: ()| Ok(state.stdin_pos < state.stdin.len()),
                     (),
-                    Some(placeholder),
+                    Some(expr),
                 );
                 Type::Bool
             }
 
-            Expr::NextString(placeholder) => {
+            Expr::NextString => {
                 self.add_operation(
                     |state, _: ()| {
                         let Some(value) = state.stdin.get(state.stdin_pos) else {
@@ -785,12 +785,12 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         Ok(Arc::new(value.clone()))
                     },
                     (),
-                    Some(placeholder),
+                    Some(expr),
                 );
                 Type::String
             }
 
-            Expr::HasInt(placeholder) => {
+            Expr::HasInt => {
                 self.add_operation(
                     |state, _: ()| {
                         Ok(state
@@ -799,12 +799,12 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                             .map_or(false, |x| x.parse::<i64>().is_ok()))
                     },
                     (),
-                    Some(placeholder),
+                    Some(expr),
                 );
                 Type::Bool
             }
 
-            Expr::NextInt(placeholder) => {
+            Expr::NextInt => {
                 self.add_operation(
                     |state, _: ()| {
                         let Some(value) = state.stdin.get(state.stdin_pos) else {
@@ -817,7 +817,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         Ok(value)
                     },
                     (),
-                    Some(placeholder),
+                    Some(expr),
                 );
                 Type::Integer
             }
