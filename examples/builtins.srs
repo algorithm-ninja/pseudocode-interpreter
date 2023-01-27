@@ -6,4 +6,5 @@ function main()
     output(repeat(1, 5))
     output(repeat(1.0 / 2.0, 10 * 2 - 18))
     output(repeat(["test"], 5))
+    output(repeat(repeat(0, 5), 5))
 end function
