@@ -35,8 +35,8 @@ fn print_error_with_location(s: &str, err: error::Error<parse::TextAst>) {
     let replacement = "\x1b[31;1m".to_owned() + &s[r.clone()] + "\x1b[;m";
     s.replace_range(r, &replacement);
     println!("Error in input program");
-    println!("{}", s);
-    println!("{}", err);
+    println!("{s}");
+    println!("{err}");
 }
 
 fn print_stack_frame<'a>(program: &'a Program<TextAst>, frame: StackFrame<'a, TextAst>, src: &str) {
@@ -54,14 +54,14 @@ fn print_stack_frame<'a>(program: &'a Program<TextAst>, frame: StackFrame<'a, Te
 
     for (var, val) in frame.variables.iter() {
         let pos = program.var(*var).ident.info.end;
-        replacements.push((pos, pos, format!(" \x1b[34;3m▸{:?}\x1b[;m", val)));
+        replacements.push((pos, pos, format!(" \x1b[34;3m▸{val:?}\x1b[;m")));
     }
 
     for (node, val) in frame.temporaries.iter() {
         replacements.push((
             node.info.start,
             node.info.end,
-            format!("\x1b[34;1m{:?}\x1b[m", val),
+            format!("\x1b[34;1m{val:?}\x1b[m"),
         ));
     }
 
