@@ -101,15 +101,18 @@ pub struct CompiledProgram<'a, A: Ast> {
 }
 
 impl<'a, A: Ast> ProgramState<'a, A> {
-    pub fn new(
-        program: Rc<CompiledProgram<'a, A>>,
-        input: Vec<String>,
-    ) -> Result<ProgramState<'a, A>, A> {
+    pub fn new(program: Rc<CompiledProgram<'a, A>>, input: &str) -> Result<ProgramState<'a, A>, A> {
+        let input_tokens = input
+            .split([' ', '\t', '\n', '\r'])
+            .filter(|x| !x.is_empty())
+            .map(|x| x.to_owned())
+            .collect();
+
         let mut program_state = ProgramState {
             ip: vec![],
             lvalues: vec![],
             rvalues: vec![],
-            stdin: input,
+            stdin: input_tokens,
             stdin_pos: 0,
             stdout: vec![],
             program: program.clone(),

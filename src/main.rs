@@ -111,14 +111,9 @@ fn main() -> Result<()> {
     let mut src = String::new();
     file.read_to_string(&mut src).expect("Unable to read file");
 
-    let input: Vec<_> = match args.input {
-        Some(filename) => std::fs::read_to_string(filename)
-            .expect("Unable to open input file")
-            .split([' ', '\t', '\n', '\r'])
-            .filter(|x| !x.is_empty())
-            .map(|x| x.to_owned())
-            .collect(),
-        None => vec![],
+    let input = match args.input {
+        Some(filename) => std::fs::read_to_string(filename).expect("Unable to open input file"),
+        None => "".to_owned(),
     };
 
     let ast = (|src| {
@@ -126,7 +121,7 @@ fn main() -> Result<()> {
         let compiled = compile::compile(&a)?;
         {
             let mut next_print = 0;
-            let mut state = ProgramState::new(compiled, input)?;
+            let mut state = ProgramState::new(compiled, &input)?;
             while !state.eval_step()? {}
             let mut current = 0;
             state.evaluate_fun("main", &[])?;
