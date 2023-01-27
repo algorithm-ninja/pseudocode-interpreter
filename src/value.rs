@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use im::{HashMap, OrdSet, Vector};
+use itertools::Itertools;
 use ordered_float::NotNan;
 
 use crate::ast::{Ast, Type};
@@ -52,6 +53,34 @@ impl LValue {
 impl Default for LValue {
     fn default() -> Self {
         LValue::Void
+    }
+}
+
+impl Display for LValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LValue::Integer(value) => write!(f, "{}", value),
+            LValue::Float(value) => write!(f, "{}", value),
+            LValue::String(value) => write!(f, "{}", value),
+            LValue::Bool(value) => write!(f, "{}", value),
+            LValue::Array(value) => {
+                write!(f, "[{}]", value.iter().map(|x| x.to_string()).join(","))
+            }
+            LValue::Set(value) => {
+                write!(f, "{{{}}}", value.iter().map(|x| x.to_string()).join(","))
+            }
+            LValue::Map(value) => {
+                write!(
+                    f,
+                    "{{{}}}",
+                    value.iter().map(|(k, v)| format!("{}->{}", k, v)).join(",")
+                )
+            }
+            LValue::Tuple(value) | LValue::NamedTuple(value) => {
+                write!(f, "({})", value.iter().map(|x| x.to_string()).join(","))
+            }
+            LValue::Void => write!(f, "Void"),
+        }
     }
 }
 

@@ -690,8 +690,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 self.compile_expr(iexpr)?;
                 self.add_operation(
                     move |_, v: LValue| {
-                        // TODO(veluca): prettier printing
-                        let out = format!("{v:?}");
+                        let out = format!("{v}");
                         Ok((out, LValue::Void))
                     },
                     (),
