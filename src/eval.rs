@@ -41,6 +41,8 @@ pub struct ProgramState<'a, A: Ast> {
     pub ip: Vec<Ip>,
     pub lvalues: Vec<LValue>,
     pub rvalues: Vec<RValue>,
+    pub stdin: Vec<String>,
+    pub stdin_pos: usize,
     pub stdout: Vec<String>,
     program: Rc<CompiledProgram<'a, A>>,
 }
@@ -99,11 +101,13 @@ pub struct CompiledProgram<'a, A: Ast> {
 }
 
 impl<'a, A: Ast> ProgramState<'a, A> {
-    pub fn new(program: Rc<CompiledProgram<'a, A>>) -> Result<ProgramState<'a, A>, A> {
+    pub fn new(program: Rc<CompiledProgram<'a, A>>, input: Vec<String>) -> Result<ProgramState<'a, A>, A> {
         let mut program_state = ProgramState {
             ip: vec![],
             lvalues: vec![],
             rvalues: vec![],
+            stdin: input,
+            stdin_pos: 0,
             stdout: vec![],
             program: program.clone(),
         };

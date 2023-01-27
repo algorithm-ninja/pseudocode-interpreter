@@ -767,6 +767,62 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 Type::Array(Box::new(Node::new_with_defaults(tv)))
             }
 
+            Expr::HasString(placeholder) => {
+                self.add_operation(
+                    |state, _: ()| Ok(state.stdin_pos < state.stdin.len()),
+                    (),
+                    Some(placeholder),
+                );
+                Type::Bool
+            }
+
+            Expr::NextString(placeholder) => {
+                self.add_operation(
+                    |state, _: ()| {
+                        let Some(value) = state.stdin.get(state.stdin_pos) else {
+                            return Err(Error::NextStringFailed(expr.id, expr.info.clone()))
+                        };
+                        state.stdin_pos += 1;
+                        Ok(Arc::new(value.clone()))
+                    },
+                    (),
+                    Some(placeholder),
+                );
+                Type::String
+            }
+
+            Expr::HasInt(placeholder) => {
+                self.add_operation(
+                    |state, _: ()| {
+                        Ok(state
+                            .stdin
+                            .get(state.stdin_pos)
+                            .map_or(false, |x| x.parse::<i64>().is_ok()))
+                    },
+                    (),
+                    Some(placeholder),
+                );
+                Type::Bool
+            }
+
+            Expr::NextInt(placeholder) => {
+                self.add_operation(
+                    |state, _: ()| {
+                        let Some(value) = state.stdin.get(state.stdin_pos) else {
+                            return Err(Error::NextIntFailed(expr.id, expr.info.clone()))
+                        };
+                        let Ok(value) = value.parse::<i64>() else {
+                            return Err(Error::NextIntParsingFailed(expr.id, expr.info.clone(), value.clone()))
+                        };
+                        state.stdin_pos += 1;
+                        Ok(value)
+                    },
+                    (),
+                    Some(placeholder),
+                );
+                Type::Integer
+            }
+
             Expr::FunctionCall(fun, args) => {
                 let f = self.program.fun(*fun);
                 if args.len() != f.args.len() {

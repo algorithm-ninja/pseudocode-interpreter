@@ -75,6 +75,14 @@ pub enum Token {
     Max,
     #[token("repeat")]
     Repeat,
+    #[token("has_string")]
+    HasString,
+    #[token("next_string")]
+    NextString,
+    #[token("has_int")]
+    HasInt,
+    #[token("next_int")]
+    NextInt,
 
     // Operators
     #[token("<-")]

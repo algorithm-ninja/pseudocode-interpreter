@@ -61,6 +61,12 @@ pub enum Error<A: Ast> {
     DivisionByZero(usize, A::NodeInfo),
     #[error("runtime error: cannot repeat {2:?} times at {0:?} ({1:?})")]
     RepeatNegativeAmount(usize, A::NodeInfo, i64),
+    #[error("runtime error: next_string called at {0:?} ({1:?}) with no input left")]
+    NextStringFailed(usize, A::NodeInfo),
+    #[error("runtime error: next_int called at {0:?} ({1:?}) with no input left")]
+    NextIntFailed(usize, A::NodeInfo),
+    #[error("runtime error: next_int called at {0:?} ({1:?}) but no integer could be parsed from {2:?}")]
+    NextIntParsingFailed(usize, A::NodeInfo, String),
 }
 
 impl<A: Ast> Error<A> {
@@ -95,6 +101,9 @@ impl<A: Ast> Error<A> {
             Error::UnaryOverflow(_, n, _, _) => n,
             Error::DivisionByZero(_, n) => n,
             Error::RepeatNegativeAmount(_, n, _) => n,
+            Error::NextStringFailed(_, n) => n,
+            Error::NextIntFailed(_, n) => n,
+            Error::NextIntParsingFailed(_, n, _) => n,
         }
         .clone()
     }

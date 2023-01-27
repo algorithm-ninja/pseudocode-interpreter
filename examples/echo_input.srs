@@ -1,0 +1,9 @@
+function main()
+    while has_string() do
+        if has_int() then
+            output(next_int())
+        else
+            output(next_string())
+        end if
+    end while
+end function
