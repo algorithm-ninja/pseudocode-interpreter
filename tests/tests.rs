@@ -17,10 +17,14 @@ fn run_program(source: &str, input: &str, function: &str) -> Result<Vec<String>,
 
 #[test]
 fn simple_output() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function main()
         output(12)
-    end function", "", "main")?;
+    end function",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["12"]);
     Ok(())
@@ -28,7 +32,8 @@ fn simple_output() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn builtins() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function main()
         output(min(5, 10))
         output(max(5, 10))
@@ -37,7 +42,10 @@ fn builtins() -> Result<(), Error<TextAst>> {
 
         output(\"Case #\" + to_string(12) + \": \")
 
-    end function", "", "main")?;
+    end function",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["5", "10", "-1.5", "5.5", "Case #12: "]);
     Ok(())
@@ -45,7 +53,8 @@ fn builtins() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn function_calls() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function f(a: integer) -> integer
         return a + 2
     end function
@@ -66,7 +75,10 @@ fn function_calls() -> Result<(), Error<TextAst>> {
             output(a[i])
         end for
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["nop", "14", "test", "test", "test", "1"]);
     Ok(())
