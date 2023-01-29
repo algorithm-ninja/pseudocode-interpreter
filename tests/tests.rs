@@ -1,34 +1,7 @@
-use pseudocode_interpreter::compile;
-use pseudocode_interpreter::error::Error;
-use pseudocode_interpreter::eval::ProgramState;
-use pseudocode_interpreter::parse::{self, TextAst};
+use common::run_program;
+use pseudocode_interpreter::{error::Error, parse::TextAst};
 
-fn run_program(source: &str, input: &str, function: &str) -> Result<Vec<String>, Error<TextAst>> {
-    let ast = parse::parse(source)?;
-    let program = compile::compile(&ast)?;
-    let mut state = ProgramState::new(program, input)?;
-    while !state.eval_step()? {}
-
-    state.evaluate_fun(function, &[])?;
-    while !state.eval_step()? {}
-
-    Ok(state.stdout)
-}
-
-#[test]
-fn empty_program() -> Result<(), Error<TextAst>> {
-    let stdout = run_program(
-        "
-    function main()
-        return
-    end function",
-        "",
-        "main",
-    )?;
-
-    assert!(stdout.is_empty());
-    Ok(())
-}
+mod common;
 
 #[test]
 fn simple_output() -> Result<(), Error<TextAst>> {

@@ -1,0 +1,11 @@
+function main()
+  variable a: integer <- 0
+  variable b: integer <- 1
+  for i in [0...30) do
+    variable c: integer <- a + b
+    a <- b
+    b <- c
+    output(c)
+  end for
+end function
+
