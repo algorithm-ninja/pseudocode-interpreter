@@ -359,6 +359,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     for _ in 0..num_local_lvalues {
                         state.lvalues.pop().unwrap();
                     }
+                    state.lvalues.push(LValue::Void);
                     Ok(None)
                 },
                 None,
@@ -1323,11 +1324,10 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
         let num_args = fun.args.len();
         let ret = fun.ret.as_ref().map(|x| x.get_contents()).transpose()?;
         self.compile_block(&fun.body, &ret)?;
-        if fun.ret.is_some() {
-            self.add_terminating_instruction(|| Err(Error::DidNotReturn(fun.ident.clone())));
-        } else {
-            self.add_terminating_instruction(|| Ok(()));
+        if fun.ret.is_none() {
+            self.add_return(false);
         }
+        self.add_terminating_instruction(|| Err(Error::DidNotReturn(fun.ident.clone())));
         self.cleanup_variables(num_args);
         Ok(())
     }
