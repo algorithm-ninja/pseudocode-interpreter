@@ -1,0 +1,7 @@
+function nop()
+    return
+end function
+
+function main()
+	nop()
+end function
