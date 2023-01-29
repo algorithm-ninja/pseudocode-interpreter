@@ -16,6 +16,21 @@ fn run_program(source: &str, input: &str, function: &str) -> Result<Vec<String>,
 }
 
 #[test]
+fn empty_program() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    function main()
+        return
+    end function",
+        "",
+        "main",
+    )?;
+
+    assert!(stdout.is_empty());
+    Ok(())
+}
+
+#[test]
 fn simple_output() -> Result<(), Error<TextAst>> {
     let stdout = run_program(
         "

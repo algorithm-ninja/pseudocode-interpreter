@@ -347,6 +347,12 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 },
                 None,
             );
+            // We only remove the return value from the stack here, as this stack representation is
+            // only used within the same function.
+            assert!(matches!(
+                self.stack_state.lstack_entries.pop().unwrap(),
+                LValueStackEntry::Temporary(_)
+            ));
         } else {
             self.add_instruction(
                 move |state| {
@@ -358,12 +364,6 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 None,
             );
         }
-        // We only remove the return value from the stack here, as this stack representation is
-        // only used within the same function.
-        assert!(matches!(
-            self.stack_state.lstack_entries.pop().unwrap(),
-            LValueStackEntry::Temporary(_)
-        ));
     }
 
     /// Promotes the LValue on top of the stack to a variable.
