@@ -23,3 +23,6 @@ crate-type = ["cdylib", "rlib"]
 debug = true
 incremental = true
 
+
+[workspace]
+members = ["web"]

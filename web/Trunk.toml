@@ -1,0 +1,17 @@
+[build]
+public_url = "/ide/"
+
+[[proxy]]
+backend = "https://territoriali.olinfo.it/api/"
+
+[[proxy]]
+backend = "https://territoriali.olinfo.it/static/"
+
+[[proxy]]
+backend = "https://territoriali.olinfo.it/task/"
+
+[[proxy]]
+backend = "https://territoriali.olinfo.it/files/"
+
+[[proxy]]
+backend = "https://territoriali.olinfo.it/index.html"
