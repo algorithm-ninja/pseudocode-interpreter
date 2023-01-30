@@ -29,14 +29,14 @@ pub fn Topbar(props: &TopbarProps) -> yew::Html {
         let now = chrono::Local::now();
         let remaining = (end_time - now).num_seconds();
         format!(
-            "{}:{}:{}",
+            "{}:{:02}:{:02}",
             remaining / 3600,
             (remaining / 60) % 60,
             remaining % 60
         )
     };
 
-    let remaining = use_state(|| get_remaining());
+    let remaining = use_state(get_remaining);
 
     {
         let remaining = remaining.clone();
