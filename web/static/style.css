@@ -74,7 +74,34 @@ div#tasklist > * {
 
 div#filemanager {
   grid-area: filemanager;
-  min-width: 200px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+div#maincontrols {
+  height: fit-content;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  padding: 2px;
+}
+
+div#debuggingcontrols {
+  justify-content: center;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  padding: 2px;
+}
+
+.submitbutton {
+  margin: 5px 0;
+}
+
+div#fileview {
+  flex-grow: 1;
 }
 
 div#input {

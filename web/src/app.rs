@@ -10,10 +10,17 @@ use crate::{
     topbar::Topbar,
 };
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
+pub enum CurrentAction {
+    Editing,
+    Running,
+    Debugging,
+}
+
+#[derive(PartialEq, Clone)]
 pub struct GlobalState {
     pub dark_theme: UseStateHandle<bool>,
-    pub debugging: UseStateHandle<bool>,
+    pub action: UseStateHandle<CurrentAction>,
     pub current_task: UseStateHandle<String>,
     pub terry: UseStateHandle<TerryData>,
 }
@@ -27,21 +34,21 @@ struct LoadedAppProps {
 fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let terry = use_state_eq(move || terry.terry.as_ref().unwrap().clone());
     let dark_theme = use_state(|| true);
-    let debugging = use_state(|| false);
+    let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = use_state(move || first_task);
 
     let global_state = GlobalState {
         dark_theme,
-        debugging,
+        action,
         current_task,
         terry,
     };
 
     html! {
         <div class={classes!(if *global_state.dark_theme {"bp3-dark"} else {""})} id="main">
-            <Topbar global_state={global_state} />
-            <FileManager />
+            <Topbar global_state={global_state.clone()} />
+            <FileManager global_state={global_state.clone()} />
             <Editor />
             <Input />
             <Output />
