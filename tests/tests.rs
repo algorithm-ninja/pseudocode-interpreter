@@ -92,7 +92,7 @@ fn custom_entry_point_name() -> Result<(), Error<TextAst>> {
     Ok(())
 }
 
-const READ_STDIN_SOURCE: &'static str = "
+const READ_STDIN_SOURCE: &str = "
 variable n: integer
 
 function main()
