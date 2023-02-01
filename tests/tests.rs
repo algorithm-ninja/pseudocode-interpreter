@@ -97,9 +97,15 @@ variable n: integer
 
 function main()
     n <- next_int()
-    for i in [1...n] do
+    for i: integer in [1...n] do
         variable x: integer <- 0
+
         if has_int() then
+            if not has_string() then
+                output(\"FAIL\")
+                return
+            end if
+
             x <- next_int()
             output(x)
         else
@@ -160,5 +166,29 @@ fn read_stdin_eos2() -> Result<(), Error<TextAst>> {
 fn read_stdin_parse_error() -> Result<(), Error<TextAst>> {
     let res = run_program(READ_STDIN_SOURCE, "invalid", "main");
     assert!(matches!(res, Err(Error::NextIntParsingFailed(_, _, _))));
+    Ok(())
+}
+
+#[test]
+fn comment_placement() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    // comment 1
+    function main()
+        // comment 2
+        //without space
+        variable not_a_comment: string <- \"//nope\"
+        for i in [-1...1) do
+            output(not_a_comment)
+            // comment 3
+        end for
+    end function
+
+    ",
+        "",
+        "main",
+    )?;
+
+    assert_eq!(stdout, vec!["//nope", "//nope"]);
     Ok(())
 }
