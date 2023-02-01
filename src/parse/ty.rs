@@ -8,6 +8,7 @@ pub fn parse_type(parser_state: &mut ParserState) -> Result<Node<TextAst, Type<T
             (Token::Integer, _, _) => Type::Integer,
             (Token::Float, _, _) => Type::Float,
             (Token::String, _, _) => Type::String,
+            (Token::Bool, _, _) => Type::Bool,
             (Token::OpenP, _, _) => {
                 // Named tuples have an identifier followed by a colon, and they are the only types
                 // that have a colon as the second token.
