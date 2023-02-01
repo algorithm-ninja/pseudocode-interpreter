@@ -71,3 +71,94 @@ fn function_calls() -> Result<(), Error<TextAst>> {
     assert_eq!(stdout, vec!["nop", "14", "test", "test", "test", "1"]);
     Ok(())
 }
+
+#[test]
+fn custom_entry_point_name() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    function main()
+        output(\"invalid\")
+    end function
+
+    function custom_entry()
+        output(\"correct\")
+    end function
+    ",
+        "",
+        "custom_entry",
+    )?;
+
+    assert_eq!(stdout, vec!["correct"]);
+    Ok(())
+}
+
+const READ_STDIN_SOURCE: &'static str = "
+variable n: integer
+
+function main()
+    n <- next_int()
+    for i in [1...n] do
+        variable x: integer <- 0
+        if has_int() then
+            x <- next_int()
+            output(x)
+        else
+            output(\"String \" + next_string())
+        end if
+    end for
+end function
+";
+
+#[test]
+fn read_stdin() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        READ_STDIN_SOURCE,
+        "
+    10
+    2 a -4000000000\t123
+    test\r\ntest
+    0.0 a
+
+
+    a 22
+    ",
+        "main",
+    )?;
+    assert_eq!(
+        stdout,
+        vec![
+            "2",
+            "String a",
+            "-4000000000",
+            "123",
+            "String test",
+            "String test",
+            "String 0.0",
+            "String a",
+            "String a",
+            "22"
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn read_stdin_eos() -> Result<(), Error<TextAst>> {
+    let res = run_program(READ_STDIN_SOURCE, "10 2 a", "main");
+    assert!(matches!(res, Err(Error::NextStringFailed(_, _))));
+    Ok(())
+}
+
+#[test]
+fn read_stdin_eos2() -> Result<(), Error<TextAst>> {
+    let res = run_program(READ_STDIN_SOURCE, "", "main");
+    assert!(matches!(res, Err(Error::NextIntFailed(_, _))));
+    Ok(())
+}
+
+#[test]
+fn read_stdin_parse_error() -> Result<(), Error<TextAst>> {
+    let res = run_program(READ_STDIN_SOURCE, "invalid", "main");
+    assert!(matches!(res, Err(Error::NextIntParsingFailed(_, _, _))));
+    Ok(())
+}
