@@ -27,6 +27,9 @@ fn builtins() -> Result<(), Error<TextAst>> {
         output(max(5, 10))
         output(min(-1.5, 5.5))
         output(max(0.5, 5.5))
+        output(min([1,2,3,4], [1,2,3,3]))
+        output(max([1,2,3,4], [1,2,3,3]))
+        output(min(\"qwertyuiop\", \"aqwertyuiop\"))
 
         output(\"Case #\" + to_string(12) + \": \")
 
@@ -35,7 +38,19 @@ fn builtins() -> Result<(), Error<TextAst>> {
         "main",
     )?;
 
-    assert_eq!(stdout, vec!["5", "10", "-1.5", "5.5", "Case #12: "]);
+    assert_eq!(
+        stdout,
+        vec![
+            "5",
+            "10",
+            "-1.5",
+            "5.5",
+            "[1,2,3,3]",
+            "[1,2,3,4]",
+            "aqwertyuiop",
+            "Case #12: "
+        ]
+    );
     Ok(())
 }
 

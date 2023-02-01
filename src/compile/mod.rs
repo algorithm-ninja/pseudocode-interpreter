@@ -702,22 +702,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 let t1 = self.compile_expr(e1)?;
                 let t2 = self.compile_expr(e2)?;
 
-                expect_type(&[&Type::Integer, &Type::Float], e1, &t1)?;
                 expect_type(&[&t1], e2, &t2)?;
 
-                match (&t1, &t2) {
-                    (Type::Integer, Type::Integer) => self.add_operation(
-                        move |_, (x, y): (i64, i64)| Ok(x.min(y)),
-                        (),
-                        Some(expr),
-                    ),
-                    (Type::Float, Type::Float) => self.add_operation(
-                        move |_, (x, y): (NotNan<f64>, NotNan<f64>)| Ok(x.min(y)),
-                        (),
-                        Some(expr),
-                    ),
-                    _ => unreachable!("{:?} - {:?} {:?}", expr, e1, e2),
-                }
+                self.add_operation(
+                    move |_, (x, y): (LValue, LValue)| Ok(x.min(y)),
+                    (),
+                    Some(expr),
+                );
                 t1
             }
 
@@ -725,22 +716,13 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 let t1 = self.compile_expr(e1)?;
                 let t2 = self.compile_expr(e2)?;
 
-                expect_type(&[&Type::Integer, &Type::Float], e1, &t1)?;
                 expect_type(&[&t1], e2, &t2)?;
 
-                match (&t1, &t2) {
-                    (Type::Integer, Type::Integer) => self.add_operation(
-                        move |_, (x, y): (i64, i64)| Ok(x.max(y)),
-                        (),
-                        Some(expr),
-                    ),
-                    (Type::Float, Type::Float) => self.add_operation(
-                        move |_, (x, y): (NotNan<f64>, NotNan<f64>)| Ok(x.max(y)),
-                        (),
-                        Some(expr),
-                    ),
-                    _ => unreachable!("{:?} - {:?} {:?}", expr, e1, e2),
-                }
+                self.add_operation(
+                    move |_, (x, y): (LValue, LValue)| Ok(x.max(y)),
+                    (),
+                    Some(expr),
+                );
                 t1
             }
 
