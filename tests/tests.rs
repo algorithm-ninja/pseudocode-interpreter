@@ -192,3 +192,45 @@ fn comment_placement() -> Result<(), Error<TextAst>> {
     assert_eq!(stdout, vec!["//nope", "//nope"]);
     Ok(())
 }
+
+#[test]
+fn bool_ops() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    function assert(b: bool)
+        if b then
+            output(\"OK\")
+        else
+            output(\"FAIL\")
+        end if
+    end function
+
+    function main()
+        assert(true == true)
+        assert(false == false)
+        assert(true != false)
+
+        assert(true > false)
+        assert(true <= true)
+        assert(false >= false)
+        assert(false < true)
+
+        assert(not (false or false))
+        assert(true and true)
+        assert((true and false) == false)
+
+        variable v: bool[] <- [false, true]
+        assert(to_string(v[0]) == \"false\")
+        assert(to_string(v[1]) == \"true\")
+    end function
+    ",
+        "",
+        "main",
+    )?;
+
+    stdout
+        .iter()
+        .enumerate()
+        .for_each(|(i, x)| assert_eq!(x, "OK", "test {i} failed"));
+    Ok(())
+}
