@@ -17,20 +17,20 @@ pub struct TerryTaskInfo {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerryInputInfo {
-    id: String,
-    path: String,
+    pub id: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerrySubmissionInfo {
-    score: f64,
-    id: String,
-    input: TerryInputInfo,
+    pub score: f64,
+    pub id: String,
+    pub input: TerryInputInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerrySubmissionList {
-    items: Vec<TerrySubmissionInfo>,
+    pub items: Vec<TerrySubmissionInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

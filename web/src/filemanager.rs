@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use gloo_utils::window;
 use yew::prelude::*;
 
@@ -64,6 +66,77 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         )
         .unwrap();
 
+    let template_id = tree
+        .insert(
+            Node::new(NodeData {
+                icon: Icon::Document,
+                label: format!("Solution template").into(),
+                ..Default::default()
+            }),
+            InsertBehavior::UnderNode(&root_id),
+        )
+        .unwrap();
+
+    let example_id = tree
+        .insert(
+            Node::new(NodeData {
+                icon: Icon::Document,
+                label: format!("Example input").into(),
+                ..Default::default()
+            }),
+            InsertBehavior::UnderNode(&root_id),
+        )
+        .unwrap();
+
+    let mut submissions_sources = HashMap::new();
+    let mut submissions_inputs = HashMap::new();
+
+    for (id, info) in global_state
+        .terry
+        .tasks
+        .get(&*global_state.current_task)
+        .unwrap()
+        .submissions
+        .iter()
+        .enumerate()
+    {
+        let sub_node = tree
+            .insert(
+                Node::new(NodeData {
+                    icon: Icon::FolderOpen,
+                    label: format!("Submission {} ({:.0} points)", id + 1, info.score).into(),
+                    is_expanded: true,
+                    ..Default::default()
+                }),
+                InsertBehavior::UnderNode(&root_id),
+            )
+            .unwrap();
+        submissions_sources.insert(
+            tree.insert(
+                Node::new(NodeData {
+                    icon: Icon::Document,
+                    label: format!("Source file").into(),
+                    ..Default::default()
+                }),
+                InsertBehavior::UnderNode(&sub_node),
+            )
+            .unwrap(),
+            id,
+        );
+        submissions_inputs.insert(
+            tree.insert(
+                Node::new(NodeData {
+                    icon: Icon::Document,
+                    label: format!("Input file").into(),
+                    ..Default::default()
+                }),
+                InsertBehavior::UnderNode(&sub_node),
+            )
+            .unwrap(),
+            id,
+        );
+    }
+
     let current_task = global_state.current_task.clone();
     let onclick = move |(node_id, _)| {
         if node_id == statement_id {
@@ -71,7 +144,21 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 .open_with_url(&format!("/task/{}", *current_task))
                 .unwrap();
         }
+        if node_id == template_id {
+            // TODO(veluca): download template
+        }
+        if node_id == example_id {
+            // TODO(veluca): download example
+        }
+        if let Some(_) = submissions_sources.get(&node_id) {
+            // TODO(veluca): download input
+        }
+        if let Some(_) = submissions_inputs.get(&node_id) {
+            // TODO(veluca): download input
+        }
     };
+
+    // TODO(veluca): saved files
 
     let tree: TreeData<()> = tree.into();
 
