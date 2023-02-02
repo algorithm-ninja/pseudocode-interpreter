@@ -1,6 +1,3 @@
-use std::time::Duration;
-
-use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 use yewprint::{Button, Icon, Intent, Tag};
 
@@ -38,14 +35,15 @@ pub fn Topbar(props: &TopbarProps) -> yew::Html {
 
     let remaining = use_state(get_remaining);
 
+    let timer = use_state(|| None);
+
     {
         let remaining = remaining.clone();
-        spawn_local(async move {
-            loop {
-                gloo_timers::future::sleep(Duration::from_millis(500)).await;
-                remaining.set(get_remaining());
-            }
-        })
+        if timer.is_none() {
+            timer.set(Some(gloo_timers::callback::Interval::new(500, move || {
+                remaining.set(get_remaining())
+            })));
+        }
     }
 
     let task_buttons = terry
