@@ -1,8 +1,12 @@
+use gloo_utils::window;
 use yew::prelude::*;
 
 use crate::app::{CurrentAction, GlobalState};
 
-use yewprint::{Button, ButtonGroup, Icon, Intent};
+use yewprint::{
+    id_tree::{InsertBehavior, Node, TreeBuilder},
+    Button, ButtonGroup, Icon, Intent, NodeData, Tree, TreeData,
+};
 
 #[derive(Properties, PartialEq)]
 pub struct FileManagerProps {
@@ -37,6 +41,40 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         }
     };
 
+    let mut tree = TreeBuilder::new().build();
+
+    let root_id = tree
+        .insert(
+            Node::new(NodeData {
+                data: (),
+                ..Default::default()
+            }),
+            InsertBehavior::AsRoot,
+        )
+        .unwrap();
+
+    let statement_id = tree
+        .insert(
+            Node::new(NodeData {
+                icon: Icon::AlignJustify,
+                label: "Statement".into(),
+                ..Default::default()
+            }),
+            InsertBehavior::UnderNode(&root_id),
+        )
+        .unwrap();
+
+    let current_task = global_state.current_task.clone();
+    let onclick = move |(node_id, _)| {
+        if node_id == statement_id {
+            window()
+                .open_with_url(&format!("/task/{}", *current_task))
+                .unwrap();
+        }
+    };
+
+    let tree: TreeData<()> = tree.into();
+
     html! {
         <div id="filemanager">
             // TODO(veluca): do something with debugging controls and submit button.
@@ -67,7 +105,12 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                             disabled={*global_state.action != CurrentAction::Debugging}></Button>
                 </ButtonGroup>
             </div>
-            <div id="fileview">{"file manager here"}</div>
+            <div id="fileview">
+                <Tree<()>
+                    tree={tree}
+                    onclick={onclick}
+                />
+            </div>
         </div>
     }
 }
