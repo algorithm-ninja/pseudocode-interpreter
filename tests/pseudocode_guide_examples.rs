@@ -1,33 +1,7 @@
 use common::run_program;
-use pseudocode_interpreter::{
-    compile,
-    error::Error,
-    parse::{self, TextAst},
-};
+use pseudocode_interpreter::{error::Error, parse::TextAst};
 
 mod common;
-
-fn compile_line(expr: &str) -> Result<(), Error<TextAst>> {
-    let src = format!(
-        "
-    function main()
-        {expr}
-    end function"
-    );
-    let ast = parse::parse(&src)?;
-    compile::compile(&ast)?;
-    Ok(())
-}
-
-#[test]
-fn variable_declarations() -> Result<(), Error<TextAst>> {
-    compile_line("variable i: integer")?;
-    compile_line("variable arr: integer[]")?;
-    assert!(compile_line("variable i").is_err());
-    assert!(compile_line("arr: integer[]").is_err());
-    assert!(compile_line("integer a").is_err());
-    Ok(())
-}
 
 #[test]
 fn reverse_array() -> Result<(), Error<TextAst>> {

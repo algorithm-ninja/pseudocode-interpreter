@@ -18,3 +18,21 @@ pub fn run_program(
 
     Ok(state.stdout)
 }
+
+/// Parses and compiles a given line, by itself if global == true,
+/// or inside a main function
+pub fn compile_line(expr: &str, global: bool) -> Result<(), Error<TextAst>> {
+    let src = if global {
+        expr.to_owned()
+    } else {
+        format!(
+            "
+        function main()
+            {expr}
+        end function"
+        )
+    };
+    let ast = parse::parse(&src)?;
+    compile::compile(&ast)?;
+    Ok(())
+}

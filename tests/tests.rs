@@ -1,4 +1,4 @@
-use common::run_program;
+use common::{compile_line, run_program};
 use pseudocode_interpreter::{error::Error, parse::TextAst};
 
 mod common;
@@ -15,6 +15,30 @@ fn simple_output() -> Result<(), Error<TextAst>> {
     )?;
 
     assert_eq!(stdout, vec!["12"]);
+    Ok(())
+}
+
+#[test]
+fn variable_declarations() -> Result<(), Error<TextAst>> {
+    for global in [true, false] {
+        compile_line("variable i: integer", global)?;
+        compile_line("variable b: bool", global)?;
+        compile_line("variable f: float", global)?;
+        compile_line("variable s: string", global)?;
+        compile_line("variable arr: integer[]", global)?;
+        compile_line("variable arr: integer[][]", global)?;
+        compile_line("variable t: (integer, integer)", global)?;
+        compile_line("variable t: ((float, bool), integer)", global)?;
+        compile_line("variable t: ((float, bool[]), string)", global)?;
+
+        assert!(compile_line("variable i", global).is_err());
+        assert!(compile_line("arr: integer[]", global).is_err());
+        assert!(compile_line("integer a", global).is_err());
+        assert!(compile_line("int a", global).is_err());
+        assert!(compile_line("variable x: (integer)", global).is_err());
+        assert!(compile_line("variable x: float, y: float", global).is_err());
+        assert!(compile_line("variable (x, y): (float, float)", global).is_err());
+    }
     Ok(())
 }
 
