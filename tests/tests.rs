@@ -256,18 +256,17 @@ fn bool_ops() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn array_access() -> Result<(), Error<TextAst>> {
-    for array_length in vec![-100, -1, 0, 1, 2, 3, 10, 100] {
+    for array_length in [-100, -1, 0, 1, 2, 3, 10, 100] {
         for index in -5..array_length + 5 {
             let code = format!(
                 "
             variable arr: integer[]
             function main()
-                arr <- repeat(1, {})
-                arr[{}] <- 42
-                output(arr[{}])
+                arr <- repeat(1, {array_length})
+                arr[{index}] <- 42
+                output(arr[{index}])
             end function
-            ",
-                array_length, index, index
+            "
             );
 
             let res = run_program(&code, "", "main");
