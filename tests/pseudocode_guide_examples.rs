@@ -5,7 +5,8 @@ mod common;
 
 #[test]
 fn reverse_array() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function reverse(n: integer, v: integer[]) -> integer[]
         for i in [0...n/2) do
             variable j: integer
@@ -19,7 +20,10 @@ fn reverse_array() -> Result<(), Error<TextAst>> {
         a <- reverse(9, a)
         output(a)
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["[9,8,7,6,5,4,3,2,1]"]);
     Ok(())
@@ -27,7 +31,8 @@ fn reverse_array() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn count_sums() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function count_sums(n: integer) -> integer
         if n == 1 then
             return 1
@@ -42,7 +47,10 @@ fn count_sums() -> Result<(), Error<TextAst>> {
     function main()
         output(count_sums(4))
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["8"]);
     Ok(())
@@ -50,7 +58,8 @@ fn count_sums() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn subsequence_sum() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function subsequence_sum(n: integer, v: integer[], x: integer, sum: integer) -> integer
         if n == 0 then
             if sum == x then
@@ -71,7 +80,10 @@ fn subsequence_sum() -> Result<(), Error<TextAst>> {
         output(subsequence_sum(5, [1,2,3,4,5], 9, 0))
         output(subsequence_sum(0, repeat(0, 0), 9, 0))
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["0", "1", "0"]);
     Ok(())
@@ -79,7 +91,8 @@ fn subsequence_sum() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn program_19() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     variable ctr: integer
     function main()
         ctr <- 0
@@ -103,7 +116,10 @@ fn program_19() -> Result<(), Error<TextAst>> {
             conta <- conta + 2
         end while
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["15"]);
     Ok(())
@@ -111,7 +127,8 @@ fn program_19() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn program_20() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function main()
         output(secret(24, 3))
     end function
@@ -129,7 +146,10 @@ fn program_20() -> Result<(), Error<TextAst>> {
             return mystery(a, b)
         end if
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["24"]);
     Ok(())
@@ -137,7 +157,8 @@ fn program_20() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn program_21() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function main()
         variable v: integer[]
         variable w: integer[]
@@ -150,7 +171,10 @@ fn program_21() -> Result<(), Error<TextAst>> {
             output(w[i])
         end for
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout.last(), Some(&"6".to_owned()));
     Ok(())
@@ -158,7 +182,8 @@ fn program_21() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn program_22() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function f(x: integer) -> integer
         variable i: integer
         while x > 0 do
@@ -175,7 +200,10 @@ fn program_22() -> Result<(), Error<TextAst>> {
     function main()
         output(f(7))
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["5"]);
     Ok(())
@@ -183,7 +211,8 @@ fn program_22() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn program_23() -> Result<(), Error<TextAst>> {
-    let stdout = run_program("
+    let stdout = run_program(
+        "
     function f(n: integer) -> integer
         if n < 10 then
             return f(n + 1) + 3
@@ -199,7 +228,10 @@ fn program_23() -> Result<(), Error<TextAst>> {
     function main()
         output(f(13))
     end function
-    ", "", "main")?;
+    ",
+        "",
+        "main",
+    )?;
 
     assert_eq!(stdout, vec!["8"]);
     Ok(())
