@@ -1,6 +1,5 @@
-variable a: integer <- 42
-
 function main()
+    variable a: integer <- 42
     variable b: integer <- 1
     (a, b) <- (b, a)
 
