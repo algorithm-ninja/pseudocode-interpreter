@@ -27,6 +27,10 @@ pub enum Error<A: Ast> {
     DuplicateFunction(Ident<A>, Ident<A>),
     #[error("error: duplicate type {0:?}, previous definition is at {1:?}")]
     DuplicateType(Ident<A>, Ident<A>),
+    #[error("error: cannot access field of temporary tuple at {0:?} ({1:?})")]
+    TemporaryTupleAccess(usize, A::NodeInfo),
+    #[error("error: cannot build nested temporary tuple at {0:?} ({1:?})")]
+    NestedTemporaryTuple(usize, A::NodeInfo),
     #[error("missing node: {0:?} ({1:?})")]
     MissingNode(usize, A::NodeInfo),
     #[error("type error: node {0:?} ({1:?}) has an unexpected type {2:?} (expected: {3:?})")]
@@ -86,6 +90,8 @@ impl<A: Ast> Error<A> {
             Error::DuplicateVariable(Ident { name: _, info: n }, _) => n,
             Error::DuplicateFunction(Ident { name: _, info: n }, _) => n,
             Error::DuplicateType(Ident { name: _, info: n }, _) => n,
+            Error::TemporaryTupleAccess(_, n) => n,
+            Error::NestedTemporaryTuple(_, n) => n,
             Error::MissingNode(_, n) => n,
             Error::TypeError(_, n, _, _) => n,
             Error::ReturnNoValue(_, n) => n,

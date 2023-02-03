@@ -85,8 +85,23 @@ impl Display for LValue {
 }
 
 #[derive(Clone, Debug)]
-pub struct RValue {
+pub struct RValueEntry {
     pub lstack_pos: usize,
     // TODO(veluca): consider using a small-vector.
     pub indices: Vec<i64>,
+}
+
+#[derive(Clone, Debug)]
+pub enum RValue {
+    Single(RValueEntry),
+    Tuple(Vec<RValue>),
+}
+
+impl RValue {
+    pub fn new(lstack_pos: usize, indices: Vec<i64>) -> Self {
+        Self::Single(RValueEntry {
+            lstack_pos,
+            indices,
+        })
+    }
 }

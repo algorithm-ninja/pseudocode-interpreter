@@ -1039,10 +1039,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     LValueStorageLocation::Local(l) => {
                         self.add_operation(
                             move |state, _: ()| {
-                                Ok(RValue {
-                                    lstack_pos: state.lvalues.len() - l - 1,
-                                    indices: vec![],
-                                })
+                                Ok(RValue::new(state.lvalues.len() - l - 1, vec![]))
                             },
                             (),
                             Some(expr),
@@ -1050,12 +1047,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     }
                     LValueStorageLocation::Global(l) => {
                         self.add_operation(
-                            move |_, _: ()| {
-                                Ok(RValue {
-                                    lstack_pos: l,
-                                    indices: vec![],
-                                })
-                            },
+                            move |_, _: ()| Ok(RValue::new(l, vec![])),
                             (),
                             Some(expr),
                         );
@@ -1069,7 +1061,8 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 expect_type(&[&Type::Integer], iexpr, &ity)?;
                 self.add_operation(
                     move |_, (mut a, i): (RValue, i64)| {
-                        a.indices.push(i);
+                        let RValue::Single(inner) = &mut a else { panic!("Multiple rvalues"); };
+                        inner.indices.push(i);
                         Ok(a)
                     },
                     (),
@@ -1085,7 +1078,10 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 let tty = self.compile_expr_rvalue(texpr)?;
                 self.add_operation(
                     move |_, mut a: RValue| {
-                        a.indices.push(*idx as i64);
+                        let RValue::Single(inner) = &mut a else {
+                            return Err(Error::TemporaryTupleAccess(expr.id, expr.info.clone()))
+                        };
+                        inner.indices.push(*idx as i64);
                         Ok(a)
                     },
                     (),
@@ -1121,7 +1117,8 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 };
                 self.add_operation(
                     move |_, mut a: RValue| {
-                        a.indices.push(idx as i64);
+                        let RValue::Single(inner) = &mut a else { panic!("Multiple rvalues"); };
+                        inner.indices.push(idx as i64);
                         Ok(a)
                     },
                     (),
@@ -1129,7 +1126,26 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                 );
                 ty
             }
-            Expr::Tuple(_) => todo!(),
+            Expr::Tuple(fields) => {
+                let mut types = Vec::new();
+                for field in fields.iter() {
+                    let t = self.compile_expr_rvalue(field)?;
+                    types.push(Node::new_with_defaults(t));
+                }
+
+                self.add_operation(
+                    |_, v: Vec<RValue>| {
+                        if v.iter().any(|item| matches!(item, RValue::Tuple(_))) {
+                            return Err(Error::NestedTemporaryTuple(expr.id, expr.info.clone()));
+                        }
+                        Ok(RValue::Tuple(v))
+                    },
+                    fields.len(),
+                    Some(expr),
+                );
+
+                Type::Tuple(types)
+            }
             Expr::NamedTuple(_) => todo!(),
             _ => {
                 return Err(Error::NotAssignable(expr.id, expr.info.clone()));
@@ -1177,31 +1193,43 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     expect_type(&[&rty], expr, &lty)?;
                     self.add_operation(
                         move |state, (rval, lval): (RValue, LValue)| {
-                            let mut current_value = &mut state.lvalues[rval.lstack_pos];
-                            for x in rval.indices.iter().rev() {
-                                match current_value {
-                                    LValue::Array(arr) => {
-                                        if (*x < 0) || (*x as usize) >= arr.len() {
-                                            return Err(Error::ArrayOutOfBounds(
-                                                stmt.id,
-                                                stmt.info.clone(),
-                                                *x,
-                                                arr.len(),
-                                            ));
+                            let (rvals, lvals) = match (rval, lval) {
+                                (RValue::Single(r), l) => (vec![RValue::Single(r)], vec![l]),
+                                (RValue::Tuple(r), LValue::Tuple(l)) =>
+                                    (r, l.into_iter().collect()),
+                                _ => unreachable!(),
+                            };
+
+                            for (entry, lentry) in rvals.iter().zip(lvals.into_iter()) {
+                                let RValue::Single(entry) = entry else { panic!("Nested rvalue tuples"); };
+
+                                let mut current_value = &mut state.lvalues[entry.lstack_pos];
+                                for x in entry.indices.iter().rev() {
+                                    match current_value {
+                                        LValue::Array(arr) => {
+                                            if (*x < 0) || (*x as usize) >= arr.len() {
+                                                return Err(Error::ArrayOutOfBounds(
+                                                    stmt.id,
+                                                    stmt.info.clone(),
+                                                    *x,
+                                                    arr.len(),
+                                                ));
+                                            }
+                                            current_value = &mut arr[*x as usize];
                                         }
-                                        current_value = &mut arr[*x as usize];
+                                        LValue::Tuple(vals) => {
+                                            current_value = &mut vals[*x as usize];
+                                        }
+                                        LValue::NamedTuple(vals) => {
+                                            current_value = &mut vals[*x as usize];
+                                        }
+                                        // TODO(veluca): namedtuple rvalues.
+                                        _ => unreachable!(),
                                     }
-                                    LValue::Tuple(vals) => {
-                                        current_value = &mut vals[*x as usize];
-                                    }
-                                    LValue::NamedTuple(vals) => {
-                                        current_value = &mut vals[*x as usize];
-                                    }
-                                    // TODO(veluca): tuple/namedtuple rvalues.
-                                    _ => unreachable!(),
                                 }
+                                *current_value = lentry;
                             }
-                            *current_value = lval;
+
                             Ok(())
                         },
                         (),
