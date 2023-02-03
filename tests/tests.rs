@@ -296,6 +296,50 @@ fn bool_ops() -> Result<(), Error<TextAst>> {
 }
 
 #[test]
+fn float_ops() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    variable eps: float
+    function assert_close(a: float, b: float)
+        if a >= b - eps and a <= b + eps then
+            output(\"OK\")
+        else
+            output(\"FAIL\")
+        end if
+    end function
+
+    function sum(n: integer, vals: float[]) -> float
+        variable res: float <- 0.0
+        for i in [0...n) do
+            res <- res + vals[i]
+        end for
+        return res
+    end function
+
+    function main()
+        eps <- 0.000000001
+        assert_close(0.1, 0.1)
+        assert_close(0.1 + 0.2, 0.3)
+        assert_close(1000.0 / 2.0 * 2.0, 1000.0)
+        assert_close(-1.0 / 1.0, -1.0)
+
+        variable nums: float[] <- repeat(0.1, 10000)
+
+        assert_close(sum(10000, nums), 1000.0)
+    end function
+    ",
+        "",
+        "main",
+    )?;
+
+    stdout
+        .iter()
+        .enumerate()
+        .for_each(|(i, x)| assert_eq!(x, "OK", "test {i} failed"));
+    Ok(())
+}
+
+#[test]
 fn array_access() -> Result<(), Error<TextAst>> {
     for array_length in [-100, -1, 0, 1, 2, 3, 10, 100] {
         for index in -5..array_length + 5 {
