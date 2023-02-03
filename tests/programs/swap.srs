@@ -1,0 +1,10 @@
+variable a: integer <- 42
+
+function main()
+    variable b: integer <- 1
+    (a, b) <- (b, a)
+
+    if a != 1 or b != 42 then
+        output("ASSERT")
+    end if
+end function

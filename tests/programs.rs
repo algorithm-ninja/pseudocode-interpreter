@@ -26,3 +26,4 @@ test_program!(tiny_return);
 test_program!(fib_exp);
 test_program!(fib_iter);
 test_program!(call_void_function);
+test_program!(swap);
