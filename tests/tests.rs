@@ -249,3 +249,40 @@ fn bool_ops() -> Result<(), Error<TextAst>> {
         .for_each(|(i, x)| assert_eq!(x, "OK", "test {i} failed"));
     Ok(())
 }
+
+#[test]
+fn array_access() -> Result<(), Error<TextAst>> {
+    for array_length in vec![-100, -1, 0, 1, 2, 3, 10, 100] {
+        for index in -5..array_length + 5 {
+            let code = format!(
+                "
+            variable arr: integer[]
+            function main()
+                arr <- repeat(1, {})
+                arr[{}] <- 42
+                output(arr[{}])
+            end function
+            ",
+                array_length, index, index
+            );
+
+            let res = run_program(&code, "", "main");
+
+            if array_length < 0 {
+                assert!(
+                    matches!(res, Err(Error::RepeatNegativeAmount(_, _, _))),
+                    "{res:?}"
+                );
+            } else if index < 0 || index >= array_length {
+                assert!(
+                    matches!(res, Err(Error::ArrayOutOfBounds(_, _, _, _))),
+                    "{res:?}"
+                );
+            } else {
+                assert!(matches!(res, Ok(_)), "{res:?}");
+                assert_eq!(res.unwrap(), vec!["42"]);
+            }
+        }
+    }
+    Ok(())
+}

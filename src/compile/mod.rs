@@ -950,7 +950,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                         let LValue::Array(lval) = a else {
                             panic!("Not an array");
                         };
-                        if (i < 0) || (i as usize) > lval.len() {
+                        if (i < 0) || (i as usize) >= lval.len() {
                             return Err(Error::ArrayOutOfBounds(
                                 expr.id,
                                 expr.info.clone(),
@@ -1181,7 +1181,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                             for x in rval.indices.iter().rev() {
                                 match current_value {
                                     LValue::Array(arr) => {
-                                        if (*x < 0) || (*x as usize) > arr.len() {
+                                        if (*x < 0) || (*x as usize) >= arr.len() {
                                             return Err(Error::ArrayOutOfBounds(
                                                 stmt.id,
                                                 stmt.info.clone(),
