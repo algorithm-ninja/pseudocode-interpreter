@@ -34,7 +34,11 @@ fn parse_expr_with_precedence(
                 let mut escaped = false;
                 for c in s[1..s.len() - 1].chars() {
                     if escaped || c != '\\' {
-                        val.push(c);
+                        match (escaped, c) {
+                            (true, 'n') => val.push('\n'),
+                            (true, 't') => val.push('\t'),
+                            _ => val.push(c),
+                        }
                         escaped = false;
                     } else if c == '\\' {
                         escaped = true;

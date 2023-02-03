@@ -129,7 +129,7 @@ pub enum Token {
     True,
     #[token("false")]
     False,
-    #[regex("\"([^\"]|\\.)*\"")]
+    #[regex(r#""([^"\\]|\\.)*""#)]
     StringLit,
 
     #[regex("[a-zA-Z_][a-zA-Z0-9_]*")]

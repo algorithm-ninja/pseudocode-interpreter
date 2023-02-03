@@ -43,6 +43,23 @@ fn variable_declarations() -> Result<(), Error<TextAst>> {
 }
 
 #[test]
+fn string_escape() -> Result<(), Error<TextAst>> {
+    let src = r#"
+    function main()
+        output("")
+        output("\"")
+        output("\\")
+        output("\n")
+        output("\t")
+        output("'")
+    end function
+    "#;
+    let stdout = run_program(&src, "", "main")?;
+    assert_eq!(stdout, vec!["", "\"", "\\", "\n", "\t", "'"]);
+    Ok(())
+}
+
+#[test]
 fn builtins() -> Result<(), Error<TextAst>> {
     let stdout = run_program(
         "
