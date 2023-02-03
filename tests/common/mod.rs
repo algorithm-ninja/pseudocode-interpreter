@@ -21,6 +21,7 @@ pub fn run_program(
 
 /// Parses and compiles a given line, by itself if global == true,
 /// or inside a main function
+#[allow(dead_code)]
 pub fn compile_line(expr: &str, global: bool) -> Result<(), Error<TextAst>> {
     let src = if global {
         expr.to_owned()
