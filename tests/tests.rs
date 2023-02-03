@@ -237,6 +237,10 @@ fn bool_ops() -> Result<(), Error<TextAst>> {
         variable v: bool[] <- [false, true]
         assert(to_string(v[0]) == \"false\")
         assert(to_string(v[1]) == \"true\")
+
+        assert(min(true, true) == true)
+        assert(min(true, false) == false)
+        assert(max(true, false) == true)
     end function
     ",
         "",
