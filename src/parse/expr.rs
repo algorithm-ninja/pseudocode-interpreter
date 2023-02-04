@@ -71,8 +71,6 @@ fn parse_expr_with_precedence(
             }
             (Token::OpenSq, _, _) => {
                 let mut parse_range = || {
-                    parser_state.get_previous_failure(ParseAttempt::Range)?;
-
                     parser_state.require(Token::OpenSq)?;
 
                     let expr1 = parse_expr(parser_state)?;
@@ -95,15 +93,14 @@ fn parse_expr_with_precedence(
                     }
                 };
 
-                match parse_range() {
-                    Ok(range) => range,
-                    Err(err) => {
-                        parser_state.rollback_current_node(ParseAttempt::Range, err);
-                        parser_state.require(Token::OpenSq)?;
-                        Expr::Array(
-                            parse_comma_separated(parser_state, Token::ClosedSq, parse_expr)?.0,
-                        )
-                    }
+                let range: Result<_> = parse_range();
+
+                if let Ok(range) = range {
+                    range
+                } else {
+                    parser_state.rollback_current_node();
+                    parser_state.require(Token::OpenSq)?;
+                    Expr::Array(parse_comma_separated(parser_state, Token::ClosedSq, parse_expr)?.0)
                 }
             }
             (Token::OpenP, _, _) => {
@@ -135,8 +132,6 @@ fn parse_expr_with_precedence(
             (Token::OpenBr, _, _) => {
                 // TODO(veluca): what is a "{}"?
                 let mut parse_map = || {
-                    parser_state.get_previous_failure(ParseAttempt::Map)?;
-
                     parser_state.require(Token::OpenBr)?;
 
                     Ok(Expr::Map(
@@ -149,15 +144,14 @@ fn parse_expr_with_precedence(
                     ))
                 };
 
-                match parse_map() {
-                    Ok(map) => map,
-                    Err(err) => {
-                        parser_state.rollback_current_node(ParseAttempt::Map, err);
-                        parser_state.require(Token::OpenBr)?;
-                        Expr::Set(
-                            parse_comma_separated(parser_state, Token::ClosedBr, parse_expr)?.0,
-                        )
-                    }
+                let map: Result<_> = parse_map();
+
+                if let Ok(map) = map {
+                    map
+                } else {
+                    parser_state.rollback_current_node();
+                    parser_state.require(Token::OpenBr)?;
+                    Expr::Set(parse_comma_separated(parser_state, Token::ClosedBr, parse_expr)?.0)
                 }
             }
             (Token::Output, _, _) => {
@@ -326,5 +320,12 @@ fn parse_expr_with_precedence(
 }
 
 pub fn parse_expr(parser_state: &mut ParserState) -> Result<Node<TextAst, Expr<TextAst>>> {
-    parse_expr_with_precedence(parser_state, 0)
+    parser_state.get_previous_failure(ParseAttempt::Expr)?;
+    let start_pos = parser_state.current_pos();
+
+    let res = parse_expr_with_precedence(parser_state, 0);
+    if let Err(err) = &res {
+        parser_state.record_failure(start_pos, ParseAttempt::Expr, err.clone());
+    }
+    res
 }

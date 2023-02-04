@@ -32,8 +32,7 @@ impl ScopeState {
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ParseAttempt {
-    Range,
-    Map,
+    Expr,
 }
 
 #[derive(Debug)]
@@ -71,6 +70,10 @@ impl<'a> ParserState<'a> {
 
     pub fn done(&self) -> bool {
         self.tokens[self.input_pos].0 == Token::Eos
+    }
+
+    pub fn current_pos(&self) -> usize {
+        self.input_pos
     }
 
     fn tok(&self) -> Result<(Token, Range<usize>)> {
@@ -306,12 +309,19 @@ impl<'a> ParserState<'a> {
         self.node_impl(create, pos)
     }
 
-    pub fn rollback_current_node(&mut self, failed_attempt: ParseAttempt, failure: Error<TextAst>) {
+    pub fn rollback_current_node(&mut self) {
         let node = self.node_state.pop().unwrap();
         self.input_pos = node.start_pos;
         self.node_state.push(node);
-        self.failures
-            .insert((self.input_pos, failed_attempt), failure);
+    }
+
+    pub fn record_failure(
+        &mut self,
+        pos: usize,
+        failed_attempt: ParseAttempt,
+        failure: Error<TextAst>,
+    ) {
+        self.failures.insert((pos, failed_attempt), failure);
     }
 
     pub fn get_previous_failure(&self, attempt: ParseAttempt) -> Result<()> {
