@@ -1,5 +1,5 @@
 div.bp3-dark#main {
-  background-color: #033;
+  background-color: #3c3c3c;
 }
 
 body, html {
@@ -116,9 +116,12 @@ div#output {
 
 div#editor {
   grid-area: editor;
-  background-color: lightgray;
   min-width: 50vw;
   width: 100%;
+  height: 100%;
+}
+
+div#editor>:first-child {
   height: 100%;
 }
 

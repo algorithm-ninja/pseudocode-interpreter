@@ -1,3 +1,4 @@
+use monaco::api::TextModel;
 use yew::prelude::*;
 use yewprint::Spinner;
 
@@ -23,6 +24,8 @@ pub struct GlobalState {
     pub action: UseStateHandle<CurrentAction>,
     pub current_task: UseStateHandle<String>,
     pub terry: UseStateHandle<TerryData>,
+    pub current_code: UseStateHandle<String>,
+    pub text_model: UseStateHandle<TextModel>,
 }
 
 #[derive(PartialEq, Properties)]
@@ -37,19 +40,30 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = use_state(move || first_task);
+    let current_code = use_state(String::new);
+    let text_model = use_state_eq(|| {
+        TextModel::create(
+            "function main()\n\toutput(1)\nend function",
+            Some(crate::monaco_srs::ID),
+            None,
+        )
+        .unwrap()
+    });
 
     let global_state = GlobalState {
         dark_theme,
         action,
         current_task,
         terry,
+        current_code,
+        text_model,
     };
 
     html! {
         <div class={classes!(if *global_state.dark_theme {"bp3-dark"} else {""})} id="main">
             <Topbar global_state={global_state.clone()} />
             <FileManager global_state={global_state.clone()} />
-            <Editor />
+            <Editor global_state={global_state.clone()} />
             <Input />
             <Output />
             <DebuggerBar />
