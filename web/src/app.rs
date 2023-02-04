@@ -1,4 +1,6 @@
+use log::info;
 use monaco::api::TextModel;
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yewprint::Spinner;
 
@@ -24,8 +26,25 @@ pub struct GlobalState {
     pub action: UseStateHandle<CurrentAction>,
     pub current_task: UseStateHandle<String>,
     pub terry: UseStateHandle<TerryData>,
-    pub current_code: UseStateHandle<String>,
     pub text_model: UseStateHandle<TextModel>,
+    pub input_textarea: NodeRef,
+    pub current_output: UseStateHandle<String>,
+}
+
+impl GlobalState {
+    pub fn run(&self) {
+        let code = self.text_model.get_value();
+        let input = self
+            .input_textarea
+            .cast::<HtmlInputElement>()
+            .unwrap()
+            .value();
+        info!("input: {}", &input);
+        info!("code: {}", &code);
+        self.action.set(CurrentAction::Running);
+        // TODO(veluca): run the code for real.
+        self.current_output.set("fake output".to_owned());
+    }
 }
 
 #[derive(PartialEq, Properties)]
@@ -40,7 +59,6 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = use_state(move || first_task);
-    let current_code = use_state(String::new);
     let text_model = use_state_eq(|| {
         TextModel::create(
             "function main()\n\toutput(1)\nend function",
@@ -55,8 +73,9 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
         action,
         current_task,
         terry,
-        current_code,
         text_model,
+        input_textarea: use_node_ref(),
+        current_output: use_state(String::new),
     };
 
     html! {
@@ -64,8 +83,8 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
             <Topbar global_state={global_state.clone()} />
             <FileManager global_state={global_state.clone()} />
             <Editor global_state={global_state.clone()} />
-            <Input />
-            <Output />
+            <Input global_state={global_state.clone()} />
+            <Output global_state={global_state.clone()}  />
             <DebuggerBar />
         </div>
     }

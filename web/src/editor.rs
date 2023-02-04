@@ -19,23 +19,17 @@ pub struct EditorProps {
 
 #[function_component]
 pub fn Editor(props: &EditorProps) -> yew::Html {
-    let global_state = &props.global_state;
+    let global_state = props.global_state.clone();
 
     let on_editor_created = {
-        let text_model = global_state.text_model.clone();
-        let code = global_state.current_code.clone();
-
         let js_closure = {
-            let code = code.clone();
-            let text_model = text_model.clone();
             let action = global_state.action.clone();
+            let global_state = global_state.clone();
             Closure::<dyn Fn()>::new(move || {
                 if *action != CurrentAction::Editing {
                     return;
                 }
-                action.set(CurrentAction::Running);
-                info!("{}", text_model.get_value());
-                code.set(text_model.get_value());
+                global_state.run();
             })
         };
 

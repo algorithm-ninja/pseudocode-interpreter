@@ -17,13 +17,12 @@ pub struct FileManagerProps {
 
 #[function_component]
 pub fn FileManager(props: &FileManagerProps) -> yew::Html {
-    let global_state = &props.global_state;
+    let global_state = props.global_state.clone();
 
     let start_program = {
-        let action = global_state.action.clone();
+        let global_state = global_state.clone();
         move |_| {
-            // TODO(veluca): actually do something.
-            action.set(CurrentAction::Running);
+            global_state.run();
         }
     };
 
