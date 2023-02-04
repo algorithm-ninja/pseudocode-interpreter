@@ -377,6 +377,49 @@ fn array_access() -> Result<(), Error<TextAst>> {
 }
 
 #[test]
+fn tuple_access() -> Result<(), Error<TextAst>> {
+    let stdout = run_program(
+        "
+    variable a: (integer, integer)
+    type T: (bool, float, integer)
+
+    function f() -> (integer, integer)
+        return (a.1, 43)
+    end function
+
+    function main()
+        variable b: (integer, integer)
+        variable c: T <- (true, 0.5, 1)
+        a.0 <- 42
+        (b.0, a.1) <- (a.0, c.2)
+        b.1 <- f().1
+
+        variable arr: integer[] <- repeat(0, 5)
+        if c.0 then
+            arr[a.1] <- 2
+        else
+            arr[a.1] <- -1
+        end if
+
+        output(c)
+        output((b.0, a.1))
+        for i in [0...arr[a.1]] do
+            output(c.0)
+        end for
+    end function
+    ",
+        "",
+        "main",
+    )?;
+
+    assert_eq!(
+        stdout,
+        vec!["(true,0.5,1)", "(42,1)", "true", "true", "true"]
+    );
+    Ok(())
+}
+
+#[test]
 #[timeout(250)]
 fn parser_backtracking_performance_1() {
     let res = run_program(
