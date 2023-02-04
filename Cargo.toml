@@ -14,7 +14,7 @@ itertools = "0.10.5"
 logos = "0.12.1"
 ordered-float = "3.4.0"
 thiserror = "1.0.37"
-
+ntest = "0.7.3"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

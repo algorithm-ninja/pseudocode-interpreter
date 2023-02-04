@@ -1,4 +1,5 @@
 use common::{compile_line, run_program};
+use ntest::timeout;
 use pseudocode_interpreter::{error::Error, parse::TextAst};
 
 mod common;
@@ -54,7 +55,7 @@ fn string_escape() -> Result<(), Error<TextAst>> {
         output("'")
     end function
     "#;
-    let stdout = run_program(&src, "", "main")?;
+    let stdout = run_program(src, "", "main")?;
     assert_eq!(stdout, vec!["", "\"", "\\", "\n", "\t", "'"]);
     Ok(())
 }
@@ -373,4 +374,32 @@ fn array_access() -> Result<(), Error<TextAst>> {
         }
     }
     Ok(())
+}
+
+#[test]
+#[timeout(250)]
+fn parser_backtracking_performance_1() {
+    let res = run_program(
+        "
+    function main()
+        [[[[[[[[[[[[[[[[[[[[[[[[[[[
+    end function",
+        "",
+        "main",
+    );
+    assert!(res.is_err());
+}
+
+#[test]
+#[timeout(250)]
+fn parser_backtracking_performance_2() {
+    let res = run_program(
+        "
+    function main()
+        {{{{{{{{{{{{{{{{{{{{{{{{{{{
+    end function",
+        "",
+        "main",
+    );
+    assert!(res.is_err());
 }
