@@ -30,6 +30,12 @@ impl ScopeState {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum ParseAttempt {
+    Range,
+    Map,
+}
+
 #[derive(Debug)]
 pub struct ParserState<'a> {
     input: &'a str,
@@ -41,6 +47,7 @@ pub struct ParserState<'a> {
     vars: Vec<VarDecl<TextAst>>,
     funs: Vec<FnDecl<TextAst>>,
     unknown_funs: HashMap<String, FnIndex>,
+    failures: HashMap<(usize, ParseAttempt), Error<TextAst>>,
 }
 
 impl<'a> ParserState<'a> {
@@ -58,6 +65,7 @@ impl<'a> ParserState<'a> {
             vars: vec![],
             funs: vec![],
             unknown_funs: HashMap::new(),
+            failures: HashMap::new(),
         }
     }
 
@@ -298,10 +306,19 @@ impl<'a> ParserState<'a> {
         self.node_impl(create, pos)
     }
 
-    pub fn rollback_current_node(&mut self) {
+    pub fn rollback_current_node(&mut self, failed_attempt: ParseAttempt, failure: Error<TextAst>) {
         let node = self.node_state.pop().unwrap();
         self.input_pos = node.start_pos;
         self.node_state.push(node);
+        self.failures
+            .insert((self.input_pos, failed_attempt), failure);
+    }
+
+    pub fn get_previous_failure(&self, attempt: ParseAttempt) -> Result<()> {
+        match self.failures.get(&(self.input_pos, attempt)) {
+            None => Ok(()),
+            Some(value) => Err(value.clone()),
+        }
     }
 
     pub fn finalize(&mut self, program: &mut Program<TextAst>) -> Result<()> {

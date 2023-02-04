@@ -387,7 +387,7 @@ fn parser_backtracking_performance_1() {
         "",
         "main",
     );
-    assert!(res.is_err());
+    assert!(matches!(res, Err(Error::ParseError(_, _, _))));
 }
 
 #[test]
@@ -401,5 +401,5 @@ fn parser_backtracking_performance_2() {
         "",
         "main",
     );
-    assert!(res.is_err());
+    assert!(matches!(res, Err(Error::ParseError(_, _, _))));
 }

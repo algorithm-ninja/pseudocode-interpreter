@@ -5,7 +5,7 @@ use crate::{
     parse::Token,
 };
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum Error<A: Ast> {
     #[error("parse error: expected one of {0:?}, found {1:?} at position {2:?}")]
     ParseError(Vec<Token>, String, A::NodeInfo),
