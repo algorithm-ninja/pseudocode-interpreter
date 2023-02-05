@@ -35,6 +35,8 @@ pub enum ParseAttempt {
     Expr,
 }
 
+type CachedResult = (Result<Node<TextAst, Expr<TextAst>>>, usize);
+
 #[derive(Debug)]
 pub struct ParserState<'a> {
     input: &'a str,
@@ -46,7 +48,7 @@ pub struct ParserState<'a> {
     vars: Vec<VarDecl<TextAst>>,
     funs: Vec<FnDecl<TextAst>>,
     unknown_funs: HashMap<String, FnIndex>,
-    failures: HashMap<(usize, ParseAttempt), Error<TextAst>>,
+    cached_results: HashMap<(usize, ParseAttempt), CachedResult>,
 }
 
 impl<'a> ParserState<'a> {
@@ -64,7 +66,7 @@ impl<'a> ParserState<'a> {
             vars: vec![],
             funs: vec![],
             unknown_funs: HashMap::new(),
-            failures: HashMap::new(),
+            cached_results: HashMap::new(),
         }
     }
 
@@ -315,20 +317,19 @@ impl<'a> ParserState<'a> {
         self.node_state.push(node);
     }
 
-    pub fn record_failure(
+    pub fn record_result(
         &mut self,
         pos: usize,
-        failed_attempt: ParseAttempt,
-        failure: Error<TextAst>,
+        attempt: ParseAttempt,
+        result: Result<Node<TextAst, Expr<TextAst>>>,
+        parsed_tokens: usize,
     ) {
-        self.failures.insert((pos, failed_attempt), failure);
+        self.cached_results
+            .insert((pos, attempt), (result, parsed_tokens));
     }
 
-    pub fn get_previous_failure(&self, attempt: ParseAttempt) -> Result<()> {
-        match self.failures.get(&(self.input_pos, attempt)) {
-            None => Ok(()),
-            Some(value) => Err(value.clone()),
-        }
+    pub fn cached_result(&self, attempt: ParseAttempt) -> Option<CachedResult> {
+        self.cached_results.get(&(self.input_pos, attempt)).cloned()
     }
 
     pub fn finalize(&mut self, program: &mut Program<TextAst>) -> Result<()> {

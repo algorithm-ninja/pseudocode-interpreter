@@ -320,12 +320,20 @@ fn parse_expr_with_precedence(
 }
 
 pub fn parse_expr(parser_state: &mut ParserState) -> Result<Node<TextAst, Expr<TextAst>>> {
-    parser_state.get_previous_failure(ParseAttempt::Expr)?;
-    let start_pos = parser_state.current_pos();
-
-    let res = parse_expr_with_precedence(parser_state, 0);
-    if let Err(err) = &res {
-        parser_state.record_failure(start_pos, ParseAttempt::Expr, err.clone());
+    if let Some((value, num_tokens)) = parser_state.cached_result(ParseAttempt::Expr) {
+        for _ in 0..num_tokens {
+            parser_state.advance().unwrap();
+        }
+        return value;
     }
+
+    let start_pos = parser_state.current_pos();
+    let res = parse_expr_with_precedence(parser_state, 0);
+    parser_state.record_result(
+        start_pos,
+        ParseAttempt::Expr,
+        res.clone(),
+        parser_state.current_pos() - start_pos,
+    );
     res
 }
