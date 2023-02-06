@@ -1,4 +1,5 @@
-use log::info;
+use gloo_worker::Spawnable;
+use log::{info, warn};
 use monaco::api::TextModel;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -7,6 +8,7 @@ use yewprint::Spinner;
 use crate::{
     debugger::DebuggerBar,
     editor::Editor,
+    eval::{Action, PseudocodeEvaluator},
     filemanager::FileManager,
     io::{Input, Output},
     terry::{use_terry, TerryData},
@@ -42,8 +44,22 @@ impl GlobalState {
         info!("input: {}", &input);
         info!("code: {}", &code);
         self.action.set(CurrentAction::Running);
-        // TODO(veluca): run the code for real.
-        self.current_output.set("fake output".to_owned());
+        let current_output = self.current_output.clone();
+        let bridge = PseudocodeEvaluator::spawner()
+            .callback(move |x| match x {
+                Ok(out) => current_output.set(out),
+                Err(e) => {
+                    warn!("{:?}", e);
+                    current_output.set("Error occurred, check console".into());
+                }
+            })
+            .spawn("./worker.js");
+        // TODO(veluca): probably should not do this.
+        let bridge = Box::leak(Box::new(bridge));
+        bridge.send(Action::Eval {
+            source: code.to_string(),
+            input,
+        });
     }
 }
 

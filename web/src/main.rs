@@ -1,17 +1,9 @@
-mod app;
-mod debugger;
-mod editor;
-mod filemanager;
-mod io;
-mod monaco_srs;
-mod terry;
-mod topbar;
-
-use app::App;
 use log::Level;
+use web::app::App;
+use web::monaco_srs::register_srs;
 
 fn main() {
     console_log::init_with_level(Level::Info).unwrap();
-    monaco_srs::register_srs();
+    register_srs();
     yew::Renderer::<App>::new().render();
 }
