@@ -14,7 +14,7 @@ use crate::{
     topbar::Topbar,
 };
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum CurrentAction {
     Editing,
     Running,

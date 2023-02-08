@@ -1,6 +1,5 @@
-use log::info;
 use monaco::{
-    api::CodeEditorOptions,
+    api::{CodeEditorOptions, TextModel},
     sys::editor::{BuiltinTheme, IStandaloneCodeEditor},
     yew::{CodeEditor, CodeEditorLink},
 };
@@ -20,6 +19,7 @@ pub struct EditorProps {
 #[function_component]
 pub fn Editor(props: &EditorProps) -> yew::Html {
     let global_state = props.global_state.clone();
+    let editor_link = use_state(|| -> Option<CodeEditorLink> { None });
 
     let on_editor_created = {
         let js_closure = {
@@ -32,10 +32,11 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
                 global_state.run();
             })
         };
+        let editor_link = editor_link.clone();
 
         use_callback(
-            move |editor_link: CodeEditorLink, ()| {
-                editor_link.with_editor(|editor| {
+            move |my_editor_link: CodeEditorLink, ()| {
+                my_editor_link.with_editor(|editor| {
                     let keycode = monaco::sys::KeyCode::Enter.to_value()
                         | (monaco::sys::KeyMod::ctrl_cmd() as u32);
                     let raw_editor: &IStandaloneCodeEditor = editor.as_ref();
@@ -45,14 +46,53 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
                         None,
                     );
                 });
+
+                editor_link.set(Some(my_editor_link));
             },
             (),
         )
     };
 
+    use_effect_with_deps(
+        move |(link, action)| {
+            if let Some(link) = link.as_ref() {
+                link.with_editor(|editor| {
+                    let raw_editor: &IStandaloneCodeEditor = editor.as_ref();
+                    let opt = CodeEditorOptions::default().to_sys_options();
+                    opt.set_read_only(Some(**action != CurrentAction::Editing));
+                    raw_editor.update_options_editor(&opt);
+                });
+            }
+        },
+        (editor_link, global_state.action),
+    );
+
+    html! {
+        <div id="editor">
+            <EditorWrapper dark_theme={*global_state.dark_theme} {on_editor_created}
+                text_model={(*global_state.text_model).clone()} />
+        </div>
+    }
+}
+
+#[derive(PartialEq, Properties)]
+struct EditorWrapperProps {
+    dark_theme: bool,
+    on_editor_created: Callback<CodeEditorLink>,
+    text_model: TextModel,
+}
+
+#[function_component]
+fn EditorWrapper(props: &EditorWrapperProps) -> yew::Html {
+    let EditorWrapperProps {
+        dark_theme,
+        on_editor_created,
+        text_model,
+    } = props;
+
     let options = CodeEditorOptions::default()
         .with_language(monaco_srs::ID.to_string())
-        .with_builtin_theme(if *global_state.dark_theme {
+        .with_builtin_theme(if *dark_theme {
             BuiltinTheme::VsDark
         } else {
             BuiltinTheme::Vs
@@ -60,13 +100,12 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
         .with_automatic_layout(true);
 
     let options = options.to_sys_options();
-
-    options.set_read_only(Some(*global_state.action != CurrentAction::Editing));
+    options.set_read_only(Some(false));
 
     html! {
         <div id="editor">
             <CodeEditor options={ options } {on_editor_created}
-                        model={(*global_state.text_model).clone()} />
+                        model={text_model.clone()} />
         </div>
     }
 }
