@@ -1,6 +1,6 @@
 use monaco::{
     api::{CodeEditorOptions, TextModel},
-    sys::editor::{BuiltinTheme, IStandaloneCodeEditor},
+    sys::editor::{BuiltinTheme, IEditorOptionsRenderValidationDecorations, IStandaloneCodeEditor},
     yew::{CodeEditor, CodeEditorLink},
 };
 use wasm_bindgen::{prelude::Closure, JsCast};
@@ -8,6 +8,7 @@ use yew::prelude::*;
 
 use crate::{
     app::{CurrentAction, GlobalState},
+    eval::set_text_model,
     monaco_srs,
 };
 
@@ -47,11 +48,13 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
                     );
                 });
 
-                editor_link.set(Some(my_editor_link));
+                editor_link.set(Some(my_editor_link.clone()));
             },
             (),
         )
     };
+
+    set_text_model((*global_state.text_model).clone());
 
     use_effect_with_deps(
         move |(link, action)| {
@@ -101,6 +104,7 @@ fn EditorWrapper(props: &EditorWrapperProps) -> yew::Html {
 
     let options = options.to_sys_options();
     options.set_read_only(Some(false));
+    options.set_render_validation_decorations(Some(IEditorOptionsRenderValidationDecorations::On));
 
     html! {
         <div id="editor">

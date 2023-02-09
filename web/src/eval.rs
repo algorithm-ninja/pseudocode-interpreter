@@ -1,7 +1,16 @@
 use std::{ops::Range, sync::Mutex};
 
 use gloo_worker::{HandlerId, Spawnable, Worker, WorkerBridge, WorkerScope};
-use log::warn;
+use js_sys::{Array, Object};
+use log::{info, warn};
+use monaco::{
+    api::TextModel,
+    sys::{
+        editor::{get_model_markers, set_model_markers},
+        MarkerSeverity,
+    },
+    yew::CodeEditorLink,
+};
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
@@ -27,26 +36,39 @@ pub enum WorkerAnswer {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Error {
-    location: Range<usize>,
+    location: ((usize, usize), (usize, usize)),
     message: String,
 }
 
-fn error_with_location(err: error::Error<parse::TextAst>) -> Error {
+fn get_line_and_char(src: &str, mut pos: usize, is_end: bool) -> (usize, usize) {
+    for (n, l) in src.lines().enumerate() {
+        if l.len() > pos || (l.len() >= pos && is_end) {
+            return (n + 1, pos + 1);
+        }
+        pos -= l.len() + 1;
+    }
+    panic!("invalid location");
+}
+
+fn range_to_monaco_location(src: &str, range: Range<usize>) -> ((usize, usize), (usize, usize)) {
+    (
+        get_line_and_char(src, range.start, false),
+        get_line_and_char(src, range.end, true),
+    )
+}
+
+fn error_with_location(src: &str, err: error::Error<parse::TextAst>) -> Error {
     Error {
-        location: err.get_error_location(),
+        location: range_to_monaco_location(src, err.get_error_location()),
         message: format!("{err}"),
     }
 }
 
-fn run_eval<F>(
-    source: String,
-    input: String,
-    callback: F,
-) -> Result<(), error::Error<parse::TextAst>>
+fn run_eval<F>(source: &str, input: String, callback: F) -> Result<(), error::Error<parse::TextAst>>
 where
     F: Fn(String),
 {
-    let a = parse::parse(&source)?;
+    let a = parse::parse(source)?;
     let compiled = compile::compile(&a)?;
     let mut state = eval::ProgramState::new(compiled, &input)?;
 
@@ -83,10 +105,11 @@ impl Worker for PseudocodeEvaluator {
         match msg {
             WorkerCommand::Eval { source, input } => {
                 scope.respond(id, WorkerAnswer::Clear);
-                if let Err(e) = run_eval(source, input, |out| {
+                if let Err(e) = run_eval(&source, input, |out| {
                     scope.respond(id, WorkerAnswer::AppendOutput(out))
                 }) {
-                    scope.respond(id, WorkerAnswer::AddError(error_with_location(e)))
+                    scope.respond(id, WorkerAnswer::AddError(error_with_location(&source, e)));
+                    return;
                 }
                 scope.respond(id, WorkerAnswer::Done);
             }
@@ -100,7 +123,10 @@ pub struct EvalBridge {
     output: String,
     output_state: SendWrapper<Option<UseStateHandle<String>>>,
     on_done: SendWrapper<Option<Box<dyn Fn() + 'static>>>,
+    text_model: SendWrapper<Option<TextModel>>,
 }
+
+const MARKER_OWNER: &str = "srs";
 
 impl EvalBridge {
     fn update_output<F: FnOnce(&str) -> String>(&mut self, cb: F) {
@@ -108,9 +134,22 @@ impl EvalBridge {
         self.output = new_output;
         self.output_state.as_ref().unwrap().set(self.output.clone())
     }
+    fn get_model_markers(&mut self) -> Array {
+        let filter = Object::new();
+        js_sys::Reflect::set(&filter, &"owner".into(), &MARKER_OWNER.into()).unwrap();
+        get_model_markers(&filter)
+    }
     fn handle_answer(&mut self, answer: WorkerAnswer) {
         match answer {
-            WorkerAnswer::Clear => self.update_output(|_| "".into()),
+            WorkerAnswer::Clear => {
+                self.update_output(|_| "".into());
+                info!("{:?}", self.get_model_markers());
+                set_model_markers(
+                    &self.text_model.as_ref().unwrap().as_ref(),
+                    MARKER_OWNER.into(),
+                    &Array::new(),
+                );
+            }
             WorkerAnswer::Done => {
                 if let Some(x) = &*self.on_done {
                     x()
@@ -118,7 +157,52 @@ impl EvalBridge {
             }
             WorkerAnswer::AddError(err) => {
                 warn!("{:?}", err);
-                self.update_output(|_| "an error occurred".into())
+                self.update_output(|current_output| {
+                    let msg = "an error occurred";
+                    if current_output == "" {
+                        msg.into()
+                    } else {
+                        format!("{current_output}\n{msg}")
+                    }
+                });
+                let markers = self.get_model_markers();
+                let new_marker = Object::new();
+                js_sys::Reflect::set(
+                    &new_marker,
+                    &"startLineNumber".into(),
+                    &err.location.0 .0.into(),
+                )
+                .unwrap();
+                js_sys::Reflect::set(
+                    &new_marker,
+                    &"startColumn".into(),
+                    &err.location.0 .1.into(),
+                )
+                .unwrap();
+                js_sys::Reflect::set(
+                    &new_marker,
+                    &"endLineNumber".into(),
+                    &err.location.1 .0.into(),
+                )
+                .unwrap();
+                js_sys::Reflect::set(&new_marker, &"endColumn".into(), &err.location.1 .1.into())
+                    .unwrap();
+                js_sys::Reflect::set(&new_marker, &"message".into(), &err.message.into()).unwrap();
+                js_sys::Reflect::set(
+                    &new_marker,
+                    &"severity".into(),
+                    &MarkerSeverity::Error.to_value().into(),
+                )
+                .unwrap();
+
+                markers.push(&new_marker);
+
+                info!("{:?}", markers);
+                set_model_markers(
+                    &self.text_model.as_ref().unwrap().as_ref(),
+                    MARKER_OWNER.into(),
+                    &markers,
+                );
             }
 
             WorkerAnswer::AppendOutput(out) => {
@@ -146,6 +230,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             output: String::new(),
             output_state: SendWrapper::new(None),
             on_done: SendWrapper::new(None),
+            text_model: SendWrapper::new(None),
         })
     })
 }
@@ -156,6 +241,10 @@ pub fn set_output_state(output_state: UseStateHandle<String>) {
 
 pub fn set_done_callback<F: Fn() + 'static>(on_done: F) {
     *eval_bridge().lock().unwrap().on_done = Some(Box::new(on_done))
+}
+
+pub fn set_text_model(text_model: TextModel) {
+    *eval_bridge().lock().unwrap().text_model = Some(text_model)
 }
 
 pub fn send_worker_command(command: WorkerCommand) {
