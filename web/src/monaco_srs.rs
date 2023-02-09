@@ -2,8 +2,6 @@ use js_sys::Object;
 use monaco::sys::languages::{CommentRule, ILanguageExtensionPoint, LanguageConfiguration};
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 
-// TODO(veluca): actually customize syntax.
-
 pub const ID: &str = "srs";
 
 pub fn register_srs() {
