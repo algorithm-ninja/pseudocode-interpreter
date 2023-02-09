@@ -1,2 +1,7 @@
 /target
 web/dist
+
+# Profiling outputs
+perf.data
+perf.data.old
+flamegraph*.svg
