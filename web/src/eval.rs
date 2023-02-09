@@ -156,8 +156,8 @@ impl EvalBridge {
                 self.update_output(|_| "".into());
                 info!("{:?}", self.get_model_markers());
                 set_model_markers(
-                    &self.text_model.as_ref().unwrap().as_ref(),
-                    MARKER_OWNER.into(),
+                    self.text_model.as_ref().unwrap().as_ref(),
+                    MARKER_OWNER,
                     &Array::new(),
                 );
             }
@@ -170,7 +170,7 @@ impl EvalBridge {
                 warn!("{:?}", err);
                 self.update_output(|current_output| {
                     let msg = "an error occurred";
-                    if current_output == "" {
+                    if current_output.is_empty() {
                         msg.into()
                     } else {
                         format!("{current_output}\n{msg}")
@@ -210,15 +210,15 @@ impl EvalBridge {
 
                 info!("{:?}", markers);
                 set_model_markers(
-                    &self.text_model.as_ref().unwrap().as_ref(),
-                    MARKER_OWNER.into(),
+                    self.text_model.as_ref().unwrap().as_ref(),
+                    MARKER_OWNER,
                     &markers,
                 );
             }
 
             WorkerAnswer::AppendOutput(out) => {
                 self.update_output(|current_output| {
-                    if current_output == "" {
+                    if current_output.is_empty() {
                         out
                     } else {
                         format!("{current_output}\n{out}")

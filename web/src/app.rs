@@ -46,7 +46,7 @@ impl GlobalState {
         let action = self.action.clone();
         eval::set_done_callback(move || action.set(CurrentAction::Editing));
         eval::send_worker_command(WorkerCommand::Eval {
-            source: code.to_string(),
+            source: code,
             input,
         });
     }

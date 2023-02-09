@@ -1,4 +1,3 @@
-use log::info;
 use monaco::{
     api::{CodeEditorOptions, TextModel},
     sys::editor::{BuiltinTheme, IEditorOptionsRenderValidationDecorations, IStandaloneCodeEditor},
@@ -63,7 +62,7 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
                     );
                 });
 
-                editor_link.set(Some(my_editor_link.clone()));
+                editor_link.set(Some(my_editor_link));
             },
             (),
         )

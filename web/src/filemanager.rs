@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use gloo_utils::window;
 use yew::prelude::*;
@@ -69,7 +69,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         .insert(
             Node::new(NodeData {
                 icon: Icon::Document,
-                label: format!("Solution template").into(),
+                label: "Solution template".to_string().into(),
                 ..Default::default()
             }),
             InsertBehavior::UnderNode(&root_id),
@@ -80,7 +80,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         .insert(
             Node::new(NodeData {
                 icon: Icon::Document,
-                label: format!("Example input").into(),
+                label: "Example input".to_string().into(),
                 ..Default::default()
             }),
             InsertBehavior::UnderNode(&root_id),
@@ -114,7 +114,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
             tree.insert(
                 Node::new(NodeData {
                     icon: Icon::Document,
-                    label: format!("Source file").into(),
+                    label: "Source file".to_string().into(),
                     ..Default::default()
                 }),
                 InsertBehavior::UnderNode(&sub_node),
@@ -126,7 +126,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
             tree.insert(
                 Node::new(NodeData {
                     icon: Icon::Document,
-                    label: format!("Input file").into(),
+                    label: "Input file".to_string().into(),
                     ..Default::default()
                 }),
                 InsertBehavior::UnderNode(&sub_node),
@@ -149,10 +149,10 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         if node_id == example_id {
             // TODO(veluca): download example
         }
-        if let Some(_) = submissions_sources.get(&node_id) {
+        if submissions_sources.get(&node_id).is_some() {
             // TODO(veluca): download input
         }
-        if let Some(_) = submissions_inputs.get(&node_id) {
+        if submissions_inputs.get(&node_id).is_some() {
             // TODO(veluca): download input
         }
     };
