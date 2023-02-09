@@ -844,7 +844,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     ty = Some(t);
                 }
                 if ty.is_none() {
-                    todo!() // what do we do here?
+                    return Err(Error::EmptyArray(expr.id, expr.info.clone()));
                 }
 
                 self.add_operation(
@@ -866,7 +866,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     ty = Some(t);
                 }
                 if ty.is_none() {
-                    todo!() // what do we do here?
+                    return Err(Error::EmptySet(expr.id, expr.info.clone()));
                 }
 
                 self.add_operation(
@@ -890,7 +890,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     ty = Some((t0, t1));
                 }
                 if ty.is_none() {
-                    todo!() // what do we do here?
+                    return Err(Error::EmptyMap(expr.id, expr.info.clone()));
                 }
 
                 self.add_operation(
