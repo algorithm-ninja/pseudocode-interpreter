@@ -1,3 +1,4 @@
+use log::info;
 use monaco::{
     api::{CodeEditorOptions, TextModel},
     sys::editor::{BuiltinTheme, IEditorOptionsRenderValidationDecorations, IStandaloneCodeEditor},
@@ -8,7 +9,7 @@ use yew::prelude::*;
 
 use crate::{
     app::{CurrentAction, GlobalState},
-    eval::set_text_model,
+    eval::{send_worker_command, set_text_model},
     monaco_srs,
 };
 
@@ -21,6 +22,20 @@ pub struct EditorProps {
 pub fn Editor(props: &EditorProps) -> yew::Html {
     let global_state = props.global_state.clone();
     let editor_link = use_state(|| -> Option<CodeEditorLink> { None });
+
+    let text_model = (*global_state.text_model).clone();
+    use_effect_with_deps(
+        move |text_model| {
+            let text_model = (*text_model).clone();
+            set_text_model(text_model.clone());
+            std::mem::forget(text_model.clone().on_did_change_content(move |_| {
+                send_worker_command(crate::eval::WorkerCommand::Parse {
+                    source: text_model.get_value(),
+                })
+            }))
+        },
+        text_model,
+    );
 
     let on_editor_created = {
         let js_closure = {
@@ -53,8 +68,6 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
             (),
         )
     };
-
-    set_text_model((*global_state.text_model).clone());
 
     use_effect_with_deps(
         move |(link, action)| {

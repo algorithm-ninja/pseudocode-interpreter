@@ -9,7 +9,6 @@ use monaco::{
         editor::{get_model_markers, set_model_markers},
         MarkerSeverity,
     },
-    yew::CodeEditorLink,
 };
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
@@ -24,6 +23,7 @@ pub struct PseudocodeEvaluator {}
 #[derive(Serialize, Deserialize)]
 pub enum WorkerCommand {
     Eval { source: String, input: String },
+    Parse { source: String },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -40,20 +40,25 @@ pub struct Error {
     message: String,
 }
 
-fn get_line_and_char(src: &str, mut pos: usize, is_end: bool) -> (usize, usize) {
+fn get_line_and_char(src: &str, mut pos: usize) -> (usize, usize) {
+    let mut candidate = (0, 0);
+    info!("{:?}", candidate);
     for (n, l) in src.lines().enumerate() {
-        if l.len() > pos || (l.len() >= pos && is_end) {
-            return (n + 1, pos + 1);
+        candidate = (n + 1, pos + 1);
+        info!("{:?}", candidate);
+        if l.len() >= pos {
+            break;
         }
         pos -= l.len() + 1;
     }
-    panic!("invalid location");
+    info!("{:?}", candidate);
+    candidate
 }
 
 fn range_to_monaco_location(src: &str, range: Range<usize>) -> ((usize, usize), (usize, usize)) {
     (
-        get_line_and_char(src, range.start, false),
-        get_line_and_char(src, range.end, true),
+        get_line_and_char(src, range.start),
+        get_line_and_char(src, range.end),
     )
 }
 
@@ -103,6 +108,12 @@ impl Worker for PseudocodeEvaluator {
 
     fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, id: HandlerId) {
         match msg {
+            WorkerCommand::Parse { source } => {
+                scope.respond(id, WorkerAnswer::Clear);
+                if let Err(e) = parse::parse(&source) {
+                    scope.respond(id, WorkerAnswer::AddError(error_with_location(&source, e)));
+                }
+            }
             WorkerCommand::Eval { source, input } => {
                 scope.respond(id, WorkerAnswer::Clear);
                 if let Err(e) = run_eval(&source, input, |out| {
