@@ -31,6 +31,8 @@ pub enum Error<A: Ast> {
     TemporaryTupleAccess(usize, A::NodeInfo),
     #[error("error: cannot build nested temporary tuple at {0:?} ({1:?})")]
     NestedTemporaryTuple(usize, A::NodeInfo),
+    #[error("error: the main function {0:?} must take no arguments and return nothing")]
+    InvalidMainSignature(Ident<A>),
     #[error("missing node: {0:?} ({1:?})")]
     MissingNode(usize, A::NodeInfo),
     #[error("type error: node {0:?} ({1:?}) has an unexpected type {2:?} (expected: {3:?})")]
@@ -92,6 +94,7 @@ impl<A: Ast> Error<A> {
             Error::DuplicateType(Ident { name: _, info: n }, _) => n,
             Error::TemporaryTupleAccess(_, n) => n,
             Error::NestedTemporaryTuple(_, n) => n,
+            Error::InvalidMainSignature(Ident { name: _, info: n }) => n,
             Error::MissingNode(_, n) => n,
             Error::TypeError(_, n, _, _) => n,
             Error::ReturnNoValue(_, n) => n,

@@ -166,7 +166,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         let fun = self.program.ast.fun(idx);
 
         if !args.is_empty() || !fun.args.is_empty() || fun.ret.is_some() {
-            unimplemented!();
+            return Err(Error::InvalidMainSignature(fun.ident.clone()));
         }
 
         self.ip
