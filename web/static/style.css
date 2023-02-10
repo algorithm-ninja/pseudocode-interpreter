@@ -105,16 +105,25 @@ div#fileview {
   flex-grow: 1;
 }
 
+div.io-section-name {
+  text-align: center;
+  font-weight: bold;
+  margin: 5px;
+  flex: 0 1 auto;
+}
+
 div#input {
   grid-area: input;
   min-width: max(300px, 15vw);
   height: 100%;
   padding: 2px;
+  display: flex;
+  flex-flow: column;
 }
 
 div#input>textarea {
+  flex: 1 1 auto;
   width: 100%;
-  height: 100%;
   resize: none;
 }
 

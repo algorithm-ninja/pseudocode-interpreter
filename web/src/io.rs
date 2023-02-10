@@ -12,6 +12,7 @@ pub fn Input(props: &IoProps) -> yew::Html {
     // TODO(veluca): make ctrl-enter also work on the input.
     html! {
         <div id="input">
+            <div class="io-section-name"> { "Input" } </div>
             <textarea placeholder="input" ref={props.global_state.input_textarea.clone()}
                       class={classes!{"bp3-input"}}
                       disabled={*props.global_state.action != CurrentAction::Editing} >
@@ -25,6 +26,7 @@ pub fn Input(props: &IoProps) -> yew::Html {
 pub fn Output(props: &IoProps) -> yew::Html {
     html! {
         <div id="output">
+            <div class="io-section-name"> { "Output" } </div>
             <pre>{&*props.global_state.current_output}</pre>
         </div>
     }
