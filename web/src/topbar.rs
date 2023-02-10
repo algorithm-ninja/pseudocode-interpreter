@@ -1,3 +1,4 @@
+use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::window;
 use yew::prelude::*;
 use yewprint::{Button, Icon, Intent, Tag};
@@ -16,7 +17,9 @@ pub fn Topbar(props: &TopbarProps) -> yew::Html {
     let toggle_dark_theme = {
         let dark_theme = global_state.dark_theme.clone();
         move |_| {
-            dark_theme.set(!*dark_theme);
+            let val = !*dark_theme;
+            dark_theme.set(val);
+            LocalStorage::set("dark-theme", val).unwrap();
         }
     };
 

@@ -1,3 +1,4 @@
+use gloo_storage::{LocalStorage, Storage};
 use log::info;
 use monaco::api::TextModel;
 use web_sys::HtmlInputElement;
@@ -60,7 +61,7 @@ struct LoadedAppProps {
 #[function_component]
 fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let terry = use_state_eq(move || terry.terry.as_ref().unwrap().clone());
-    let dark_theme = use_state(|| true);
+    let dark_theme = use_state(|| LocalStorage::get("dark-theme").unwrap_or(true));
     let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = use_state(move || first_task);

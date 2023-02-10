@@ -1521,6 +1521,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "gloo-net",
+ "gloo-storage",
  "gloo-timers",
  "gloo-utils",
  "gloo-worker",

@@ -23,6 +23,7 @@ gloo-net = "0.2.6"
 gloo-timers = { version = "0.2.6", features = ["futures"] }
 gloo-utils = "0.1.6"
 gloo-worker = { version = "0.2.1", features = ["futures"] }
+gloo-storage = "0.2.2"
 itertools = "0.10.5"
 js-sys = "0.3.61"
 log = "0.4.17"
