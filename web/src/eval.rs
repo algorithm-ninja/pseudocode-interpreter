@@ -28,10 +28,12 @@ pub enum WorkerCommand {
 
 #[derive(Serialize, Deserialize)]
 pub enum WorkerAnswer {
-    Clear,
+    ClearOutput,
+    ClearErrors,
     AppendOutput(String),
     Done,
     AddError(Error),
+    AddQuietError(Error),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -109,13 +111,17 @@ impl Worker for PseudocodeEvaluator {
     fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, id: HandlerId) {
         match msg {
             WorkerCommand::Parse { source } => {
-                scope.respond(id, WorkerAnswer::Clear);
+                scope.respond(id, WorkerAnswer::ClearErrors);
                 if let Err(e) = parse::parse(&source) {
-                    scope.respond(id, WorkerAnswer::AddError(error_with_location(&source, e)));
+                    scope.respond(
+                        id,
+                        WorkerAnswer::AddQuietError(error_with_location(&source, e)),
+                    );
                 }
             }
             WorkerCommand::Eval { source, input } => {
-                scope.respond(id, WorkerAnswer::Clear);
+                scope.respond(id, WorkerAnswer::ClearOutput);
+                scope.respond(id, WorkerAnswer::ClearErrors);
                 if let Err(e) = run_eval(&source, input, |out| {
                     scope.respond(id, WorkerAnswer::AppendOutput(out))
                 }) {
@@ -151,10 +157,50 @@ impl EvalBridge {
         get_model_markers(&filter)
     }
     fn handle_answer(&mut self, answer: WorkerAnswer) {
+        let add_error = |bridge: &mut Self, err: Error| {
+            let markers = bridge.get_model_markers();
+            let new_marker = Object::new();
+            js_sys::Reflect::set(
+                &new_marker,
+                &"startLineNumber".into(),
+                &err.location.0 .0.into(),
+            )
+            .unwrap();
+            js_sys::Reflect::set(
+                &new_marker,
+                &"startColumn".into(),
+                &err.location.0 .1.into(),
+            )
+            .unwrap();
+            js_sys::Reflect::set(
+                &new_marker,
+                &"endLineNumber".into(),
+                &err.location.1 .0.into(),
+            )
+            .unwrap();
+            js_sys::Reflect::set(&new_marker, &"endColumn".into(), &err.location.1 .1.into())
+                .unwrap();
+            js_sys::Reflect::set(&new_marker, &"message".into(), &err.message.into()).unwrap();
+            js_sys::Reflect::set(
+                &new_marker,
+                &"severity".into(),
+                &MarkerSeverity::Error.to_value().into(),
+            )
+            .unwrap();
+
+            markers.push(&new_marker);
+
+            set_model_markers(
+                bridge.text_model.as_ref().unwrap().as_ref(),
+                MARKER_OWNER,
+                &markers,
+            );
+        };
         match answer {
-            WorkerAnswer::Clear => {
+            WorkerAnswer::ClearOutput => {
                 self.update_output(|_| "".into());
-                info!("{:?}", self.get_model_markers());
+            }
+            WorkerAnswer::ClearErrors => {
                 set_model_markers(
                     self.text_model.as_ref().unwrap().as_ref(),
                     MARKER_OWNER,
@@ -167,7 +213,6 @@ impl EvalBridge {
                 }
             }
             WorkerAnswer::AddError(err) => {
-                warn!("{:?}", err);
                 self.update_output(|current_output| {
                     let msg = "an error occurred";
                     if current_output.is_empty() {
@@ -176,44 +221,10 @@ impl EvalBridge {
                         format!("{current_output}\n{msg}")
                     }
                 });
-                let markers = self.get_model_markers();
-                let new_marker = Object::new();
-                js_sys::Reflect::set(
-                    &new_marker,
-                    &"startLineNumber".into(),
-                    &err.location.0 .0.into(),
-                )
-                .unwrap();
-                js_sys::Reflect::set(
-                    &new_marker,
-                    &"startColumn".into(),
-                    &err.location.0 .1.into(),
-                )
-                .unwrap();
-                js_sys::Reflect::set(
-                    &new_marker,
-                    &"endLineNumber".into(),
-                    &err.location.1 .0.into(),
-                )
-                .unwrap();
-                js_sys::Reflect::set(&new_marker, &"endColumn".into(), &err.location.1 .1.into())
-                    .unwrap();
-                js_sys::Reflect::set(&new_marker, &"message".into(), &err.message.into()).unwrap();
-                js_sys::Reflect::set(
-                    &new_marker,
-                    &"severity".into(),
-                    &MarkerSeverity::Error.to_value().into(),
-                )
-                .unwrap();
-
-                markers.push(&new_marker);
-
-                info!("{:?}", markers);
-                set_model_markers(
-                    self.text_model.as_ref().unwrap().as_ref(),
-                    MARKER_OWNER,
-                    &markers,
-                );
+                add_error(self, err);
+            }
+            WorkerAnswer::AddQuietError(err) => {
+                add_error(self, err);
             }
 
             WorkerAnswer::AppendOutput(out) => {

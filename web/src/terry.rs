@@ -112,8 +112,6 @@ async fn get_contest_info() -> Result<TerryData> {
                 .items
     }
 
-    info!("{:?}", data);
-
     Ok(data)
 }
 
