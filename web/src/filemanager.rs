@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use gloo_utils::window;
 use yew::prelude::*;
 
-use crate::app::{CurrentAction, GlobalState};
+use crate::{
+    app::{CurrentAction, GlobalState},
+    eval::{send_worker_command, WorkerCommand},
+};
 
 use yewprint::{
     id_tree::{InsertBehavior, Node, TreeBuilder},
@@ -22,23 +25,21 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
     let start_program = {
         let global_state = global_state.clone();
         move |_| {
-            global_state.run();
+            global_state.start_eval(false);
         }
     };
 
     let stop_program = {
-        let action = global_state.action.clone();
+        let global_state = global_state.clone();
         move |_| {
-            // TODO(veluca): actually do something.
-            action.set(CurrentAction::Editing);
+            global_state.set_action(CurrentAction::Editing);
         }
     };
 
     let debug_program = {
-        let action = global_state.action.clone();
+        let global_state = global_state.clone();
         move |_| {
-            // TODO(veluca): actually do something.
-            action.set(CurrentAction::Debugging);
+            global_state.start_eval(true);
         }
     };
 
@@ -157,6 +158,13 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         }
     };
 
+    const STEP_SIZE: usize = 500;
+
+    let fastbw = move |_| send_worker_command(WorkerCommand::GoBack { count: STEP_SIZE });
+    let stepbw = move |_| send_worker_command(WorkerCommand::GoBack { count: 1 });
+    let stepfw = move |_| send_worker_command(WorkerCommand::Advance { count: 1 });
+    let fastfw = move |_| send_worker_command(WorkerCommand::Advance { count: STEP_SIZE });
+
     // TODO(veluca): saved files
 
     let tree: TreeData<()> = tree.into();
@@ -182,12 +190,16 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
             <div id="debuggingcontrols">
                 <ButtonGroup>
                     <Button icon={Icon::FastBackward}
+                            onclick={fastbw}
                             disabled={*global_state.action != CurrentAction::Debugging}></Button>
                     <Button icon={Icon::StepBackward}
+                            onclick={stepbw}
                             disabled={*global_state.action != CurrentAction::Debugging}></Button>
                     <Button icon={Icon::StepForward}
+                            onclick={stepfw}
                             disabled={*global_state.action != CurrentAction::Debugging}></Button>
                     <Button icon={Icon::FastForward}
+                            onclick={fastfw}
                             disabled={*global_state.action != CurrentAction::Debugging}></Button>
                 </ButtonGroup>
             </div>

@@ -24,10 +24,14 @@ use pseudocode_interpreter::{
 use send_wrapper::SendWrapper;
 use yew::UseStateHandle;
 
+use crate::app::CurrentAction;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WorkerCommand {
     StartEval { source: String, input: String },
     Advance { count: usize },
+    GoBack { count: usize },
+    JumpTo { position: usize },
     Parse { source: String },
 }
 
@@ -39,6 +43,7 @@ pub enum WorkerAnswer {
     Done,
     AddError(Error),
     AddQuietError(Error),
+    CommandDone,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -87,6 +92,8 @@ struct EvalState {
     called_main: bool,
     source: String,
 }
+
+pub const NUM_STEPS: usize = 1000;
 
 impl EvalState {
     fn advance<F>(&mut self, count: usize, callback: F) -> Result<(), Error>
@@ -152,7 +159,6 @@ impl Worker for PseudocodeEvaluator {
     fn update(&mut self, _scope: &WorkerScope<Self>, _msg: Self::Message) {}
 
     fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, id: HandlerId) {
-        info!("{:?}", msg);
         match msg {
             WorkerCommand::Parse { source } => {
                 scope.respond(id, WorkerAnswer::ClearErrors);
@@ -184,7 +190,14 @@ impl Worker for PseudocodeEvaluator {
                     scope.respond(id, WorkerAnswer::Done);
                 }
             }
+            WorkerCommand::GoBack { count } => {
+                // TODO(veluca): actually go back
+            }
+            WorkerCommand::JumpTo { position } => {
+                // TODO(veluca): actually go to the position
+            }
         };
+        scope.respond(id, WorkerAnswer::CommandDone)
     }
 }
 
@@ -195,6 +208,7 @@ pub struct EvalBridge {
     output_state: SendWrapper<Option<UseStateHandle<String>>>,
     on_done: SendWrapper<Option<Box<dyn Fn() + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
+    action: CurrentAction,
 }
 
 const MARKER_OWNER: &str = "srs";
@@ -251,6 +265,13 @@ impl EvalBridge {
             );
         };
         match answer {
+            WorkerAnswer::CommandDone => match self.action {
+                // Continue execution until termination if running.
+                CurrentAction::Running => self
+                    .worker
+                    .send(WorkerCommand::Advance { count: NUM_STEPS }),
+                _ => {}
+            },
             WorkerAnswer::ClearOutput => {
                 self.update_output(|_| "".into());
             }
@@ -307,6 +328,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             output_state: SendWrapper::new(None),
             on_done: SendWrapper::new(None),
             text_model: SendWrapper::new(None),
+            action: CurrentAction::Editing,
         })
     })
 }
@@ -321,6 +343,10 @@ pub fn set_done_callback<F: Fn() + 'static>(on_done: F) {
 
 pub fn set_text_model(text_model: TextModel) {
     *eval_bridge().lock().unwrap().text_model = Some(text_model)
+}
+
+pub fn set_action(action: CurrentAction) {
+    eval_bridge().lock().unwrap().action = action
 }
 
 pub fn send_worker_command(command: WorkerCommand) {

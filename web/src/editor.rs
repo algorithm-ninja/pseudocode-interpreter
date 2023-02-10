@@ -44,7 +44,7 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
                 if *action != CurrentAction::Editing {
                     return;
                 }
-                global_state.run();
+                global_state.start_eval(false);
             })
         };
         let editor_link = editor_link.clone();

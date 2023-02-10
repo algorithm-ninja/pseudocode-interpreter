@@ -8,14 +8,14 @@ use yewprint::Spinner;
 use crate::{
     debugger::DebuggerBar,
     editor::Editor,
-    eval::{self, WorkerCommand},
+    eval::{self, set_action, WorkerCommand},
     filemanager::FileManager,
     io::{Input, Output},
     terry::{use_terry, TerryData},
     topbar::Topbar,
 };
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Copy)]
 pub enum CurrentAction {
     Editing,
     Running,
@@ -33,11 +33,13 @@ pub struct GlobalState {
     pub current_output: UseStateHandle<String>,
 }
 
-// TODO(veluca): step by step eval
-const NUM_STEPS: usize = usize::MAX;
-
 impl GlobalState {
-    pub fn run(&self) {
+    pub fn set_action(&self, action: CurrentAction) {
+        self.action.set(action);
+        set_action(action);
+    }
+
+    pub fn start_eval(&self, debugging: bool) {
         let code = self.text_model.get_value();
         let input = self
             .input_textarea
@@ -46,14 +48,18 @@ impl GlobalState {
             .value();
         info!("input: {}", &input);
         info!("code: {}", &code);
-        self.action.set(CurrentAction::Running);
         let action = self.action.clone();
-        eval::set_done_callback(move || action.set(CurrentAction::Editing));
+        if debugging {
+            self.set_action(CurrentAction::Debugging);
+            eval::set_done_callback(move || {});
+        } else {
+            self.set_action(CurrentAction::Running);
+            eval::set_done_callback(move || action.set(CurrentAction::Editing));
+        }
         eval::send_worker_command(WorkerCommand::StartEval {
             source: code,
             input,
         });
-        eval::send_worker_command(WorkerCommand::Advance { count: NUM_STEPS });
     }
 }
 
