@@ -50,6 +50,7 @@ div#topbar1 {
 
 div#topbar1 > * {
   height: fit-content;
+  margin: 3px;
 }
 
 div#contestname {

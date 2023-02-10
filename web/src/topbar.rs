@@ -1,3 +1,4 @@
+use gloo_utils::window;
 use yew::prelude::*;
 use yewprint::{Button, Icon, Intent, Tag};
 
@@ -90,6 +91,10 @@ pub fn Topbar(props: &TopbarProps) -> yew::Html {
             <div id="topbar1">
                 <div id="contestname"> { format!("{} ({} {})", terry.contest.name, terry.name, terry.surname ) } </div>
                 <div id="countdown"> { &*remaining } </div>
+                <Button
+                        onclick={|_| { window().open_with_url("./Pseudocodice.pdf").unwrap(); }}
+                        icon={Icon::Book}> {"Pseudocode guide"}
+                </Button>
                 <Button onclick={toggle_dark_theme}
                         icon={if *global_state.dark_theme {Icon::Flash} else {Icon::Moon}}>
                 </Button>
