@@ -29,6 +29,7 @@ js-sys = "0.3.61"
 log = "0.4.17"
 monaco = {git = "https://github.com/abesto/rust-monaco.git", rev = "9401e6bab6f406e46cf5a90ff3cb2372c48b7819", features = ["yew-components"]}
 once_cell = "1.17.0"
+ouroboros = "0.15.5"
 pseudocode-interpreter = { version = "0.1.0", path = ".." }
 send_wrapper = "0.6.0"
 serde = { version = "1.0.152", features = ["derive"] }

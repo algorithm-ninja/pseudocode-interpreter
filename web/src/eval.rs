@@ -2,7 +2,7 @@ use std::{ops::Range, sync::Mutex};
 
 use gloo_worker::{HandlerId, Spawnable, Worker, WorkerBridge, WorkerScope};
 use js_sys::{Array, Object};
-use log::{info, warn};
+use log::info;
 use monaco::{
     api::TextModel,
     sys::{
@@ -11,18 +11,23 @@ use monaco::{
     },
 };
 use once_cell::sync::OnceCell;
+use ouroboros::self_referencing;
 use serde::{Deserialize, Serialize};
 
-use pseudocode_interpreter::{compile, error, eval, parse};
+use pseudocode_interpreter::{
+    ast::Program,
+    compile::compile,
+    error,
+    eval::{self, ProgramState},
+    parse::{self, TextAst},
+};
 use send_wrapper::SendWrapper;
 use yew::UseStateHandle;
 
-// TODO(veluca); we want persistent state at some point.
-pub struct PseudocodeEvaluator {}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum WorkerCommand {
-    Eval { source: String, input: String },
+    StartEval { source: String, input: String },
+    Advance { count: usize },
     Parse { source: String },
 }
 
@@ -71,30 +76,68 @@ fn error_with_location(src: &str, err: error::Error<parse::TextAst>) -> Error {
     }
 }
 
-fn run_eval<F>(source: &str, input: String, callback: F) -> Result<(), error::Error<parse::TextAst>>
-where
-    F: Fn(String),
-{
-    let a = parse::parse(source)?;
-    let compiled = compile::compile(&a)?;
-    let mut state = eval::ProgramState::new(compiled, &input)?;
+#[self_referencing]
+struct EvalState {
+    program: Program<TextAst>,
+    #[borrows(program)]
+    #[not_covariant]
+    state: eval::ProgramState<'this, TextAst>,
 
-    let mut output_len = 0;
-    let mut check_new_output = |state: &eval::ProgramState<parse::TextAst>| {
-        for i in output_len..state.stdout().len() {
-            callback(state.stdout()[i].clone());
+    output_len: usize,
+    called_main: bool,
+    source: String,
+}
+
+impl EvalState {
+    fn advance<F>(&mut self, count: usize, callback: F) -> Result<(), Error>
+    where
+        F: Fn(WorkerAnswer),
+    {
+        let mut run = || {
+            for _ in 0..count {
+                if self.with_state_mut(|state| state.eval_step())? {
+                    if *self.borrow_called_main() {
+                        callback(WorkerAnswer::Done);
+                        return Ok(());
+                    } else {
+                        self.with_state_mut(|state| state.evaluate_fun("main", &[]))?;
+                        self.with_called_main_mut(|called_main| *called_main = true);
+                    }
+                } else {
+                    let new_len = self.with_state(|state| state.stdout().len());
+                    for i in *self.borrow_output_len()..new_len {
+                        callback(WorkerAnswer::AppendOutput(
+                            self.with_state(|state| state.stdout()[i].clone()),
+                        ));
+                    }
+                    self.with_output_len_mut(|len| *len = new_len);
+                }
+            }
+            Ok(())
+        };
+        run().map_err(|e| error_with_location(self.borrow_source(), e))
+    }
+}
+
+fn make_eval_state(source: String, input: &str) -> Result<EvalState, Error> {
+    let make = || {
+        EvalStateTryBuilder {
+            program: parse::parse(&source)?,
+            state_builder: |program| {
+                let compiled = compile(program)?;
+                ProgramState::new(compiled, input)
+            },
+            output_len: 0,
+            called_main: false,
+            source: source.clone(),
         }
-        output_len = state.stdout().len();
+        .try_build()
     };
+    make().map_err(|e| error_with_location(&source, e))
+}
 
-    while !state.eval_step()? {
-        check_new_output(&state);
-    }
-    state.evaluate_fun("main", &[])?;
-    while !state.eval_step()? {
-        check_new_output(&state);
-    }
-    Ok(())
+pub struct PseudocodeEvaluator {
+    eval_state: Option<EvalState>,
 }
 
 impl Worker for PseudocodeEvaluator {
@@ -103,32 +146,43 @@ impl Worker for PseudocodeEvaluator {
     type Output = WorkerAnswer;
 
     fn create(_scope: &WorkerScope<Self>) -> Self {
-        Self {}
+        Self { eval_state: None }
     }
 
     fn update(&mut self, _scope: &WorkerScope<Self>, _msg: Self::Message) {}
 
     fn received(&mut self, scope: &WorkerScope<Self>, msg: Self::Input, id: HandlerId) {
+        info!("{:?}", msg);
         match msg {
             WorkerCommand::Parse { source } => {
                 scope.respond(id, WorkerAnswer::ClearErrors);
-                if let Err(e) = parse::parse(&source) {
-                    scope.respond(
-                        id,
-                        WorkerAnswer::AddQuietError(error_with_location(&source, e)),
-                    );
+                if let Err(e) = make_eval_state(source, "") {
+                    scope.respond(id, WorkerAnswer::AddQuietError(e));
                 }
             }
-            WorkerCommand::Eval { source, input } => {
+            WorkerCommand::StartEval { source, input } => {
                 scope.respond(id, WorkerAnswer::ClearOutput);
                 scope.respond(id, WorkerAnswer::ClearErrors);
-                if let Err(e) = run_eval(&source, input, |out| {
-                    scope.respond(id, WorkerAnswer::AppendOutput(out))
-                }) {
-                    scope.respond(id, WorkerAnswer::AddError(error_with_location(&source, e)));
-                    return;
+                match make_eval_state(source, &input) {
+                    Err(e) => {
+                        scope.respond(id, WorkerAnswer::AddError(e));
+                        scope.respond(id, WorkerAnswer::Done);
+                    }
+                    Ok(state) => {
+                        self.eval_state = Some(state);
+                    }
                 }
-                scope.respond(id, WorkerAnswer::Done);
+            }
+            WorkerCommand::Advance { count } => {
+                if let Err(e) = self
+                    .eval_state
+                    .as_mut()
+                    .unwrap()
+                    .advance(count, |e| scope.respond(id, e))
+                {
+                    scope.respond(id, WorkerAnswer::AddError(e));
+                    scope.respond(id, WorkerAnswer::Done);
+                }
             }
         };
     }

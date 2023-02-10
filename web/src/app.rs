@@ -33,6 +33,9 @@ pub struct GlobalState {
     pub current_output: UseStateHandle<String>,
 }
 
+// TODO(veluca): step by step eval
+const NUM_STEPS: usize = usize::MAX;
+
 impl GlobalState {
     pub fn run(&self) {
         let code = self.text_model.get_value();
@@ -46,10 +49,11 @@ impl GlobalState {
         self.action.set(CurrentAction::Running);
         let action = self.action.clone();
         eval::set_done_callback(move || action.set(CurrentAction::Editing));
-        eval::send_worker_command(WorkerCommand::Eval {
+        eval::send_worker_command(WorkerCommand::StartEval {
             source: code,
             input,
         });
+        eval::send_worker_command(WorkerCommand::Advance { count: NUM_STEPS });
     }
 }
 
