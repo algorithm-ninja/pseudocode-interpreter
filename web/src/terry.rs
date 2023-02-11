@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Error, Result};
 use chrono::{DateTime, Local};
+use futures::future::join_all;
 use gloo_net::http::Request;
 use serde::Deserialize;
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
-use log::{info, warn};
+use log::warn;
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerryTaskInfo {
@@ -101,15 +102,24 @@ async fn get_contest_info() -> Result<TerryData> {
             .max_score = task.max_score;
     }
 
+    let mut reqs = Vec::new();
     for (_, task_info) in data.tasks.iter_mut() {
         // TODO(veluca): consider avoiding too many requests here.
-        task_info.submissions =
-            Request::get(&format!("/api/user/{user}/submissions/{}", task_info.name))
-                .send()
-                .await?
-                .json::<TerrySubmissionList>()
-                .await?
-                .items
+
+        reqs.push(async {
+            task_info.submissions =
+                Request::get(&format!("/api/user/{user}/submissions/{}", task_info.name))
+                    .send()
+                    .await?
+                    .json::<TerrySubmissionList>()
+                    .await?
+                    .items;
+            Ok::<(), Error>(())
+        });
+    }
+
+    for res in join_all(reqs).await {
+        res?;
     }
 
     Ok(data)
