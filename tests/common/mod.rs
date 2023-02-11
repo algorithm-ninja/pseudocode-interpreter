@@ -1,13 +1,29 @@
 use pseudocode_interpreter::compile;
 use pseudocode_interpreter::error::Error;
-use pseudocode_interpreter::eval::ProgramState;
+use pseudocode_interpreter::eval::{ProgramState, StackFrame};
 use pseudocode_interpreter::parse::{self, TextAst};
 
 pub fn run_program(source: &str, input: &str) -> Result<Vec<String>, Error<TextAst>> {
     let ast = parse::parse(source)?;
     let program = compile::compile(&ast)?;
     let mut state = ProgramState::new(program, input)?;
-    while !state.eval_step()? {}
+
+    let frames = state.stack_frames();
+    assert_eq!(frames.len(), 1);
+    assert!(matches!(
+        frames.first(),
+        Some(StackFrame {
+            fun: None,
+            current_expr: None,
+            ..
+        })
+    ));
+
+    while !state.eval_step()? {
+        let _ = state.stack_frames();
+    }
+    let _ = state.stack_frames();
+
     Ok(state.stdout)
 }
 
