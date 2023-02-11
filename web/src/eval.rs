@@ -1,4 +1,4 @@
-use std::{ops::Range, sync::Mutex};
+use std::{ops::Range, sync::Mutex, vec};
 
 use gloo_worker::{HandlerId, Spawnable, Worker, WorkerBridge, WorkerScope};
 use js_sys::{Array, Object};
@@ -24,7 +24,7 @@ use pseudocode_interpreter::{
 use send_wrapper::SendWrapper;
 use yew::UseStateHandle;
 
-use crate::app::CurrentAction;
+use crate::{app::CurrentAction};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WorkerCommand {
@@ -33,6 +33,19 @@ pub enum WorkerCommand {
     GoBack { count: usize },
     JumpTo { position: usize },
     Parse { source: String },
+    GetCurrentDebugInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct VariableValue {
+    location: (usize, usize),
+    value: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExpressionValue {
+    location: ((usize, usize), (usize, usize)),
+    value: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -44,6 +57,11 @@ pub enum WorkerAnswer {
     AddError(Error),
     AddQuietError(Error),
     CommandDone,
+    DebugInfo {
+        variable_values: Vec<VariableValue>,
+        expression_values: Vec<ExpressionValue>,
+    },
+    InvalidateDebugInfo,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,16 +72,13 @@ pub struct Error {
 
 fn get_line_and_char(src: &str, mut pos: usize) -> (usize, usize) {
     let mut candidate = (0, 0);
-    info!("{:?}", candidate);
     for (n, l) in src.lines().enumerate() {
         candidate = (n + 1, pos + 1);
-        info!("{:?}", candidate);
         if l.len() >= pos {
             break;
         }
         pos -= l.len() + 1;
     }
-    info!("{:?}", candidate);
     candidate
 }
 
@@ -99,6 +114,7 @@ impl EvalState {
     where
         F: Fn(WorkerAnswer),
     {
+        callback(WorkerAnswer::InvalidateDebugInfo);
         let mut run = || {
             for _ in 0..count {
                 if self.with_state_mut(|state| state.eval_step())? {
@@ -117,6 +133,35 @@ impl EvalState {
             Ok(())
         };
         run().map_err(|e| error_with_location(self.borrow_source(), e))
+    }
+
+    fn current_debug_info(&mut self) -> WorkerAnswer {
+        let stack_frames = self.with_state(|state| state.stack_frames());
+        let mut variable_values = vec![];
+        let mut expression_values = vec![];
+        for frame in stack_frames {
+            for (k, v) in frame.variables {
+                let loc = self.with_program(|p| p.var(k)).ident.info.end;
+                let val = format!("{}", v);
+                variable_values.push(VariableValue {
+                    location: get_line_and_char(self.borrow_source(), loc),
+                    value: val,
+                });
+            }
+            for (k, v) in frame.temporaries {
+                let start = get_line_and_char(self.borrow_source(), k.info.start);
+                let end = get_line_and_char(self.borrow_source(), k.info.end);
+                let val = format!("{:?}", v);
+                expression_values.push(ExpressionValue {
+                    location: (start, end),
+                    value: val,
+                });
+            }
+        }
+        WorkerAnswer::DebugInfo {
+            variable_values,
+            expression_values,
+        }
     }
 }
 
@@ -183,11 +228,14 @@ impl Worker for PseudocodeEvaluator {
                     scope.respond(id, WorkerAnswer::Done);
                 }
             }
-            WorkerCommand::GoBack { count } => {
+            WorkerCommand::GoBack { count: _ } => {
                 // TODO(veluca): actually go back
             }
-            WorkerCommand::JumpTo { position } => {
+            WorkerCommand::JumpTo { position: _ } => {
                 // TODO(veluca): actually go to the position
+            }
+            WorkerCommand::GetCurrentDebugInfo => {
+                scope.respond(id, self.eval_state.as_mut().unwrap().current_debug_info());
             }
         };
         scope.respond(id, WorkerAnswer::CommandDone)
@@ -202,6 +250,7 @@ pub struct EvalBridge {
     on_done: SendWrapper<Option<Box<dyn Fn() + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
+    has_fresh_debug_info: bool,
 }
 
 const MARKER_OWNER: &str = "srs";
@@ -212,11 +261,23 @@ impl EvalBridge {
         self.output = new_output;
         self.output_state.as_ref().unwrap().set(self.output.clone())
     }
+
     fn get_model_markers(&mut self) -> Array {
         let filter = Object::new();
         js_sys::Reflect::set(&filter, &"owner".into(), &MARKER_OWNER.into()).unwrap();
         get_model_markers(&filter)
     }
+
+    fn set_variable_values(&mut self, variable_values: Vec<VariableValue>) {
+        info!("{:?}", variable_values);
+        //
+    }
+
+    fn set_expression_values(&mut self, expression_values: Vec<ExpressionValue>) {
+        info!("{:?}", expression_values);
+        //
+    }
+
     fn handle_answer(&mut self, answer: WorkerAnswer) {
         let add_error = |bridge: &mut Self, err: Error| {
             let markers = bridge.get_model_markers();
@@ -263,6 +324,12 @@ impl EvalBridge {
                 CurrentAction::Running => self
                     .worker
                     .send(WorkerCommand::Advance { count: NUM_STEPS }),
+                CurrentAction::Debugging => {
+                    if !self.has_fresh_debug_info {
+                        self.has_fresh_debug_info = true;
+                        self.worker.send(WorkerCommand::GetCurrentDebugInfo);
+                    }
+                }
                 _ => {}
             },
             WorkerAnswer::ClearOutput => {
@@ -294,7 +361,6 @@ impl EvalBridge {
             WorkerAnswer::AddQuietError(err) => {
                 add_error(self, err);
             }
-
             WorkerAnswer::AppendOutput(out) => {
                 self.update_output(|current_output| {
                     if current_output.is_empty() {
@@ -303,6 +369,16 @@ impl EvalBridge {
                         format!("{current_output}\n{out}")
                     }
                 });
+            }
+            WorkerAnswer::DebugInfo {
+                variable_values,
+                expression_values,
+            } => {
+                self.set_variable_values(variable_values);
+                self.set_expression_values(expression_values);
+            }
+            WorkerAnswer::InvalidateDebugInfo => {
+                self.has_fresh_debug_info = false;
             }
         }
     }
@@ -322,6 +398,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             on_done: SendWrapper::new(None),
             text_model: SendWrapper::new(None),
             action: CurrentAction::Editing,
+            has_fresh_debug_info: false,
         })
     })
 }
