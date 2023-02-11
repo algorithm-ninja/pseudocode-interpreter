@@ -22,7 +22,6 @@ fn reverse_array() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["[9,8,7,6,5,4,3,2,1]"]);
@@ -49,7 +48,6 @@ fn count_sums() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["8"]);
@@ -82,7 +80,6 @@ fn subsequence_sum() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["0", "1", "0"]);
@@ -118,7 +115,6 @@ fn program_19() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["15"]);
@@ -148,7 +144,6 @@ fn program_20() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["24"]);
@@ -173,7 +168,6 @@ fn program_21() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout.last(), Some(&"6".to_owned()));
@@ -202,7 +196,6 @@ fn program_22() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["5"]);
@@ -230,7 +223,6 @@ fn program_23() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["8"]);

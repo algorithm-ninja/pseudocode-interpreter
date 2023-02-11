@@ -122,12 +122,10 @@ fn main() -> Result<()> {
         {
             let mut next_print = 0;
             let mut state = ProgramState::new(compiled, &input)?;
-            while !state.eval_step()? {}
-            let mut current = 0;
-            state.evaluate_fun("main", &[])?;
             if args.debug {
                 println!("before start: {:?}\n\n", state.stack_frames());
             }
+            let mut current = 0;
             while !state.eval_step()? {
                 if next_print <= current && args.debug {
                     next_print += current + 1;

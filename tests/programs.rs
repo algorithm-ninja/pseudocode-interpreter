@@ -13,7 +13,6 @@ macro_rules! test_program {
             let stdout = run_program(
                 include_str!(concat!("programs/", stringify!($name), ".srs")),
                 "",
-                "main",
             )?;
             assert!(!stdout.contains(&"ASSERT".to_owned()));
             Ok(())

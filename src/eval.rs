@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    ast::{Ast, Expr, FnIndex, Ident, Item, Node, Program, VarIndex},
+    ast::{Ast, Expr, FnIndex, Item, Node, Program, VarIndex},
     error::Error,
     value::{LValue, RValue},
 };
@@ -141,8 +141,10 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         Ok(false)
     }
 
+    /*
     /// Starts evaluation of the given function on the given arguments. Will error out if already
     /// evaluating a function, or global initialization is not done.
+    // TODO(veluca): figure out if this is necessary to do interaction.
     pub fn evaluate_fun(&mut self, fun: &str, args: &[LValue]) -> Result<(), A> {
         assert!(self.ip.is_empty());
 
@@ -178,6 +180,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
     pub fn get_fun_return(&mut self) -> LValue {
         unimplemented!()
     }
+    */
 
     pub fn stdout(&self) -> &Vec<String> {
         &self.stdout

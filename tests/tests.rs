@@ -12,7 +12,6 @@ fn simple_output() -> Result<(), Error<TextAst>> {
         output(12)
     end function",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["12"]);
@@ -55,7 +54,7 @@ fn string_escape() -> Result<(), Error<TextAst>> {
         output("'")
     end function
     "#;
-    let stdout = run_program(src, "", "main")?;
+    let stdout = run_program(src, "")?;
     assert_eq!(stdout, vec!["", "\"", "\\", "\n", "\t", "'"]);
     Ok(())
 }
@@ -77,7 +76,6 @@ fn builtins() -> Result<(), Error<TextAst>> {
 
     end function",
         "",
-        "main",
     )?;
 
     assert_eq!(
@@ -122,30 +120,9 @@ fn function_calls() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["nop", "14", "test", "test", "test", "1"]);
-    Ok(())
-}
-
-#[test]
-fn custom_entry_point_name() -> Result<(), Error<TextAst>> {
-    let stdout = run_program(
-        "
-    function main()
-        output(\"invalid\")
-    end function
-
-    function custom_entry()
-        output(\"correct\")
-    end function
-    ",
-        "",
-        "custom_entry",
-    )?;
-
-    assert_eq!(stdout, vec!["correct"]);
     Ok(())
 }
 
@@ -185,7 +162,6 @@ fn read_stdin() -> Result<(), Error<TextAst>> {
 
     a 22
     ",
-        "main",
     )?;
     assert_eq!(
         stdout,
@@ -207,21 +183,21 @@ fn read_stdin() -> Result<(), Error<TextAst>> {
 
 #[test]
 fn read_stdin_eos() -> Result<(), Error<TextAst>> {
-    let res = run_program(READ_STDIN_SOURCE, "10 2 a", "main");
+    let res = run_program(READ_STDIN_SOURCE, "10 2 a");
     assert!(matches!(res, Err(Error::NextStringFailed(_, _))));
     Ok(())
 }
 
 #[test]
 fn read_stdin_eos2() -> Result<(), Error<TextAst>> {
-    let res = run_program(READ_STDIN_SOURCE, "", "main");
+    let res = run_program(READ_STDIN_SOURCE, "");
     assert!(matches!(res, Err(Error::NextIntFailed(_, _))));
     Ok(())
 }
 
 #[test]
 fn read_stdin_parse_error() -> Result<(), Error<TextAst>> {
-    let res = run_program(READ_STDIN_SOURCE, "invalid", "main");
+    let res = run_program(READ_STDIN_SOURCE, "invalid");
     assert!(matches!(res, Err(Error::NextIntParsingFailed(_, _, _))));
     Ok(())
 }
@@ -243,7 +219,6 @@ fn comment_placement() -> Result<(), Error<TextAst>> {
 
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(stdout, vec!["//nope", "//nope"]);
@@ -286,7 +261,6 @@ fn bool_ops() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     stdout
@@ -330,7 +304,6 @@ fn float_ops() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     stdout
@@ -355,7 +328,7 @@ fn array_access() -> Result<(), Error<TextAst>> {
             "
             );
 
-            let res = run_program(&code, "", "main");
+            let res = run_program(&code, "");
 
             if array_length < 0 {
                 assert!(
@@ -409,7 +382,6 @@ fn tuple_access() -> Result<(), Error<TextAst>> {
     end function
     ",
         "",
-        "main",
     )?;
 
     assert_eq!(
@@ -428,7 +400,6 @@ fn parser_backtracking_performance_1() {
         [[[[[[[[[[[[[[[[[[[[[[[[[[[
     end function",
         "",
-        "main",
     );
     assert!(matches!(res, Err(Error::ParseError(_, _, _))));
 }
@@ -442,7 +413,6 @@ fn parser_backtracking_performance_2() {
         {{{{{{{{{{{{{{{{{{{{{{{{{{{
     end function",
         "",
-        "main",
     );
     assert!(matches!(res, Err(Error::ParseError(_, _, _))));
 }

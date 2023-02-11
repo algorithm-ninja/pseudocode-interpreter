@@ -22,6 +22,7 @@ pub fn parse(src: &str) -> Result<Program<TextAst>> {
         items: vec![],
         funs: vec![],
         vars: vec![],
+        entry_placeholder: Node::new_with_defaults(Expr::Integer(0)),
     };
 
     while !parser_state.done() {

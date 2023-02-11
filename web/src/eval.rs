@@ -89,7 +89,6 @@ struct EvalState {
     state: eval::ProgramState<'this, TextAst>,
 
     output_len: usize,
-    called_main: bool,
     source: String,
 }
 
@@ -103,13 +102,8 @@ impl EvalState {
         let mut run = || {
             for _ in 0..count {
                 if self.with_state_mut(|state| state.eval_step())? {
-                    if *self.borrow_called_main() {
-                        callback(WorkerAnswer::Done);
-                        return Ok(());
-                    } else {
-                        self.with_state_mut(|state| state.evaluate_fun("main", &[]))?;
-                        self.with_called_main_mut(|called_main| *called_main = true);
-                    }
+                    callback(WorkerAnswer::Done);
+                    return Ok(());
                 } else {
                     let new_len = self.with_state(|state| state.stdout().len());
                     for i in *self.borrow_output_len()..new_len {
@@ -135,7 +129,6 @@ fn make_eval_state(source: String, input: &str) -> Result<EvalState, Error> {
                 ProgramState::new(compiled, input)
             },
             output_len: 0,
-            called_main: false,
             source: source.clone(),
         }
         .try_build()

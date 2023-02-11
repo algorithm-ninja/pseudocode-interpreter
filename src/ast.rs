@@ -277,6 +277,9 @@ pub struct Program<A: Ast> {
     pub vars: Vec<VarDecl<A>>,
     pub funs: Vec<FnDecl<A>>,
     pub items: Vec<Node<A, Item<A>>>,
+    // Placeholder expression to be used for the debug info of the return value of main. The
+    // expression itself is not meaningful.
+    pub entry_placeholder: Node<A, Expr<A>>,
 }
 
 impl<A: Ast> AstNode<Type<A>> for Type<A> {

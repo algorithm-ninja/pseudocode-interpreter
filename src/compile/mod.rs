@@ -1391,11 +1391,40 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
             state.num_global_vars += 1;
         }
     }
-    state.add_terminating_instruction(|| Ok(()));
+
+    let main = program
+        .items
+        .iter()
+        .filter_map(|x| match x.get_contents() {
+            Ok(Item::Fn(i)) => Some(*i),
+            _ => None,
+        })
+        .find(|x| program.fun(*x).ident.name == "main")
+        .ok_or_else(|| {
+            Error::<A>::UnrecognizedFunction(Ident {
+                name: "main".into(),
+                info: A::NodeInfo::default(),
+            })
+        })?;
+
+    {
+        let main_fun = program.fun(main);
+        if !main_fun.args.is_empty() || main_fun.ret.is_some() {
+            return Err(Error::InvalidMainSignature(main_fun.ident.clone()));
+        }
+    }
 
     // As there are now *only* global variables on the lvalue stack, we just get the full debug
     // info.
     let global_vars_debug_info = state.stack_state.debug_info(None, 0);
+
+    state.add_fncall(main, &program.entry_placeholder);
+
+    // We now have one value on the global stack that is not accounted for (the return value of
+    // main()). Therefore, we increase the count of global variables by one.
+    state.num_global_vars += 1;
+
+    state.add_terminating_instruction(|| Ok(()));
 
     // Compile functions.
     for item in program.items.iter() {
