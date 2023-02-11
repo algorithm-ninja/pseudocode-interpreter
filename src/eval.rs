@@ -96,7 +96,6 @@ pub struct CompiledProgram<'a, A: Ast> {
     pub ini_entry_point: usize,
     pub fn_entry_point: HashMap<FnIndex, usize>,
     pub instruction_debug_info: Vec<DebugInfo<'a, A>>,
-    pub global_vars_debug_info: DebugInfo<'a, A>,
     pub ast: &'a Program<A>,
 }
 
@@ -236,9 +235,7 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             };
             // Anything not at the bottom of the stack has an extra entry for the return value of
             // the callee.
-            num_lvalues = num_lvalues
-                .checked_sub(debug_info.num_lstack() - !is_leaf as usize)
-                .unwrap();
+            num_lvalues = num_lvalues.saturating_sub(debug_info.num_lstack() - !is_leaf as usize);
             num_rvalues = num_rvalues.checked_sub(debug_info.num_rstack()).unwrap();
             frame
         };
@@ -248,13 +245,12 @@ impl<'a, A: Ast> ProgramState<'a, A> {
             ret.push(frame_from_deb_info(debug_info, idx == 0));
         }
 
-        ret.push(frame_from_deb_info(
-            &self.program.global_vars_debug_info,
-            true,
-        ));
-
-        assert!(num_rvalues == 0);
-        assert!(num_lvalues == 0);
+        // If the stack is empty, execution is done and we do not even have an IP for the call to
+        // main, which takes care of figuring out global variables.
+        if !self.ip.is_empty() {
+            assert_eq!(num_rvalues, 0);
+            assert_eq!(num_lvalues, 0);
+        }
 
         // Return stack frames top to bottom.
         ret.reverse();

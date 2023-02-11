@@ -1384,11 +1384,13 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
 
     state.current = state.ini_entry_point;
 
+    let mut num_global_vars = 0;
+
     // Create initialization block(s).
     for item in program.items.iter() {
         if let Item::GlobalVar(var) = item.get_contents()? {
             state.compile_vardecl(*var)?;
-            state.num_global_vars += 1;
+            num_global_vars += 1;
         }
     }
 
@@ -1414,17 +1416,13 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
         }
     }
 
-    // As there are now *only* global variables on the lvalue stack, we just get the full debug
-    // info.
-    let global_vars_debug_info = state.stack_state.debug_info(None, 0);
-
     state.add_fncall(main, &program.entry_placeholder);
+
+    state.add_terminating_instruction(|| Ok(()));
 
     // We now have one value on the global stack that is not accounted for (the return value of
     // main()). Therefore, we increase the count of global variables by one.
-    state.num_global_vars += 1;
-
-    state.add_terminating_instruction(|| Ok(()));
+    state.num_global_vars = num_global_vars + 1;
 
     // Compile functions.
     for item in program.items.iter() {
@@ -1438,7 +1436,6 @@ pub fn compile<A: Ast>(program: &Program<A>) -> Result<Rc<CompiledProgram<'_, A>
         ini_entry_point: state.ini_entry_point,
         fn_entry_point: state.fn_entry_point,
         ast: program,
-        global_vars_debug_info,
         instruction_debug_info: state.instruction_debug_info,
         instructions: state.instructions,
     }))
