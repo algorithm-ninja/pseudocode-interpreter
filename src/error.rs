@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::{
-    ast::{Ast, BinaryOp, Ident, Type, UnaryOp},
+    ast::{Ast, BinaryOp, Ident, Type, Types, UnaryOp},
     parse::Token,
 };
 
@@ -41,8 +41,8 @@ pub enum Error<A: Ast> {
     EmptyMap(usize, A::NodeInfo),
     #[error("missing node: {0:?} ({1:?})")]
     MissingNode(usize, A::NodeInfo),
-    #[error("type error: node {0:?} ({1:?}) has an unexpected type {2:?} (expected: {3:?})")]
-    TypeError(usize, A::NodeInfo, Type<A>, Vec<Type<A>>),
+    #[error("type error: node {0:?} ({1:?}) has an unexpected type {2} (expected: {3})")]
+    TypeError(usize, A::NodeInfo, Type<A>, Types<A>),
     #[error("type error: return statement with a value {0:?} ({1:?}) where none was expected")]
     ReturnHasValue(usize, A::NodeInfo),
     #[error("type error: return statement without a value {0:?} ({1:?}) where one was expected")]

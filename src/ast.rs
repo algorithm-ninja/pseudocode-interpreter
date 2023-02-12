@@ -1,9 +1,11 @@
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::{
     fmt::Debug,
     sync::{Arc, Weak},
 };
 
+use itertools::Itertools;
 use ordered_float::NotNan;
 
 use crate::error::Error;
@@ -124,6 +126,9 @@ pub enum Type<A: Ast> {
     NamedType(Weak<TypeDecl<A>>),
     Void, // TODO(veluca): is this the best way to handle non-values?
 }
+
+#[derive(Debug, Clone)]
+pub struct Types<A: Ast>(pub Vec<Type<A>>);
 
 impl<A: Ast> Type<A> {
     pub fn canonical_type(&self) -> Result<Type<A>, Error<A>> {
@@ -339,5 +344,51 @@ impl<A: Ast> Program<A> {
     }
     pub fn num_funs(&self) -> usize {
         self.funs.len()
+    }
+}
+
+impl<A: Ast> Display for Type<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            Type::Integer => write!(f, "integer"),
+            Type::Float => write!(f, "float"),
+            Type::String => write!(f, "string"),
+            Type::Bool => write!(f, "bool"),
+            Type::Array(t) => write!(f, "{}[]", t.get_contents().unwrap()),
+            Type::Set(t) => write!(f, "{{{}}}", t.get_contents().unwrap()),
+            Type::Map(t, u) => write!(
+                f,
+                "{{{} -> {}}}",
+                t.get_contents().unwrap(),
+                u.get_contents().unwrap()
+            ),
+            Type::Tuple(ts) => write!(
+                f,
+                "({})",
+                ts.iter()
+                    .map(|t| t.get_contents().unwrap().to_string())
+                    .join(",")
+            ),
+            Type::NamedTuple(ts) => write!(
+                f,
+                "({})",
+                ts.iter()
+                    .map(|(n, t)| format!("{}: {}", n.name, t.get_contents().unwrap()))
+                    .join(",")
+            ),
+            Type::NamedType(n) => write!(
+                f,
+                "{} [{}]",
+                n.upgrade().unwrap().ident.name,
+                n.upgrade().unwrap().ty.get_contents().unwrap()
+            ),
+            Type::Void => write!(f, "<no value>"),
+        }
+    }
+}
+
+impl<A: Ast> Display for Types<A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "[{}]", self.0.iter().map(Type::to_string).join(","))
     }
 }

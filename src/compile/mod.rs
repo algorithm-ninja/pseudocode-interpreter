@@ -30,7 +30,7 @@ fn expect_type<A: Ast, NT: Debug + AstNode<NT> + Clone>(
         node.id,
         node.info.clone(),
         node_type.clone(),
-        types.iter().cloned().cloned().collect(),
+        Types(types.iter().cloned().cloned().collect()),
     ))
 }
 
