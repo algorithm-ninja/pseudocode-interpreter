@@ -103,6 +103,7 @@ div#debuggingcontrols {
 
 div#fileview {
   flex-grow: 1;
+  overflow-y: auto;
 }
 
 div.io-section-name {
