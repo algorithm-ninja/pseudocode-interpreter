@@ -100,7 +100,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     };
 
     eval::set_output_state(global_state.current_output.clone());
-    eval::set_use_action(global_state.action.clone());
+    eval::set_action_state(global_state.action.clone());
 
     html! {
         <div class={classes!(if *global_state.dark_theme {"bp3-dark"} else {""})} id="main">

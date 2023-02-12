@@ -250,7 +250,7 @@ pub struct EvalBridge {
     on_done: SendWrapper<Option<Box<dyn Fn(bool, &str) + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
-    use_action: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
+    action_state: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
     has_fresh_debug_info: bool,
 }
 
@@ -354,7 +354,7 @@ impl EvalBridge {
                 }
                 if self.action == CurrentAction::Running {
                     self.action = CurrentAction::Editing;
-                    self.use_action
+                    self.action_state
                         .as_ref()
                         .unwrap()
                         .set(CurrentAction::Editing);
@@ -411,7 +411,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             on_done: SendWrapper::new(None),
             text_model: SendWrapper::new(None),
             action: CurrentAction::Editing,
-            use_action: SendWrapper::new(None),
+            action_state: SendWrapper::new(None),
             has_fresh_debug_info: false,
         })
     })
@@ -421,8 +421,8 @@ pub fn set_output_state(output_state: UseStateHandle<String>) {
     *eval_bridge().lock().unwrap().output_state = Some(output_state)
 }
 
-pub fn set_use_action(use_action: UseStateHandle<CurrentAction>) {
-    *eval_bridge().lock().unwrap().use_action = Some(use_action)
+pub fn set_action_state(action_state: UseStateHandle<CurrentAction>) {
+    *eval_bridge().lock().unwrap().action_state = Some(action_state)
 }
 
 pub fn set_done_callback<F: Fn(bool, &str) + 'static>(on_done: F) {
