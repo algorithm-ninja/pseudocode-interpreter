@@ -1,4 +1,6 @@
-use monaco::{api::CodeEditorOptions, sys::editor::BuiltinTheme, yew::CodeEditor};
+use js_sys::Object;
+use monaco::{api::CodeEditorOptions, sys::editor::{BuiltinTheme, LineNumbersType, IEditorMinimapOptions}, yew::CodeEditor};
+use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
 use crate::{
@@ -24,10 +26,15 @@ pub fn Input(props: &IoProps) -> yew::Html {
         } else {
             BuiltinTheme::Vs
         })
+        .with_scroll_beyond_last_line(false)
         .with_automatic_layout(true);
 
     let options = options.to_sys_options();
     options.set_read_only(Some(*props.global_state.action != CurrentAction::Editing));
+    options.set_line_numbers(Some(LineNumbersType::Off));
+    let minimap: IEditorMinimapOptions = Object::new().unchecked_into();
+    minimap.set_enabled(Some(false));
+    options.set_minimap(Some(&minimap));
 
     html! {
         <div id="input">
@@ -50,10 +57,15 @@ pub fn Output(props: &IoProps) -> yew::Html {
         } else {
             BuiltinTheme::Vs
         })
+        .with_scroll_beyond_last_line(false)
         .with_automatic_layout(true);
 
     let options = options.to_sys_options();
     options.set_read_only(Some(true));
+    options.set_line_numbers(Some(LineNumbersType::Off));
+    let minimap: IEditorMinimapOptions = Object::new().unchecked_into();
+    minimap.set_enabled(Some(false));
+    options.set_minimap(Some(&minimap));
 
     let text_model = (*model).clone();
     use_effect_with_deps(
