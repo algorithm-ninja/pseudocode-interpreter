@@ -8,7 +8,7 @@ use yewprint::Spinner;
 use crate::{
     debugger::DebuggerBar,
     editor::Editor,
-    eval::{self, WorkerCommand},
+    eval::{self, set_action, WorkerCommand},
     filemanager::FileManager,
     io::{Input, Output},
     terry::{use_terry, TerryData},
@@ -36,6 +36,7 @@ pub struct GlobalState {
 impl GlobalState {
     pub fn set_action(&self, action: CurrentAction) {
         self.action.set(action);
+        set_action(action);
     }
 
     pub fn start_eval(&self, debugging: bool) {
