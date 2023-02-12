@@ -229,7 +229,6 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
 
     html! {
         <div id="filemanager">
-            // TODO(veluca): do something with debugging controls.
             <Button icon={Icon::SendMessage} intent={Intent::Success} class={classes!("submitbutton")}
                     onclick={submit}
                     loading={*sub_in_progress}

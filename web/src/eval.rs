@@ -143,42 +143,96 @@ struct EvalState {
     program: Program<TextAst>,
     #[borrows(program)]
     #[not_covariant]
-    state: eval::ProgramState<'this, TextAst>,
-
-    output_len: usize,
+    states: Vec<Option<ProgramState<'this, TextAst>>>,
     source: String,
+    current_step: usize,
 }
 
-pub const NUM_STEPS: usize = 1000;
+pub const NUM_STEPS: usize = 10000;
+pub const NUM_STEPS_CACHE: usize = 1024;
 
 impl EvalState {
-    fn advance<F>(&mut self, count: usize, callback: F) -> Result<(), Error>
+    fn with_current_state<'outer, Ret>(
+        &'outer self,
+        callback: impl for<'this> FnOnce(&'outer ProgramState<'this, TextAst>) -> Ret,
+    ) -> Ret {
+        let cur = *self.borrow_current_step();
+        self.with_states(move |steps| callback(&steps[cur].as_ref().unwrap()))
+    }
+
+    fn advance<F>(&mut self, mut count: usize, callback: F) -> Result<(), Error>
     where
         F: Fn(WorkerAnswer),
     {
         callback(WorkerAnswer::InvalidateDebugInfo);
-        let mut run = || {
-            for _ in 0..count {
-                if self.with_state_mut(|state| state.eval_step())? {
-                    callback(WorkerAnswer::Done);
-                    return Ok(());
-                } else {
-                    let new_len = self.with_state(|state| state.stdout().len());
-                    for i in *self.borrow_output_len()..new_len {
-                        callback(WorkerAnswer::AppendOutput(
-                            self.with_state(|state| state.stdout()[i].clone()),
-                        ));
-                    }
-                    self.with_output_len_mut(|len| *len = new_len);
+
+        let current = *self.borrow_current_step();
+        let cached = (current + count) / NUM_STEPS_CACHE * NUM_STEPS_CACHE;
+        if cached < self.with_states(|s| s.len()) && cached >= current {
+            count -= cached - current;
+            self.with_current_step_mut(|s| *s = cached);
+            callback(WorkerAnswer::ClearOutput);
+            self.with_current_state(|state| {
+                for out in state.stdout().iter() {
+                    callback(WorkerAnswer::AppendOutput(out.clone()));
                 }
+            });
+        }
+
+        let mut run = || {
+            let current_output_len = self.with_current_state(|s| s.stdout().len());
+            for _ in 0..count {
+                let cur = *self.borrow_current_step();
+                let done = self.with_states_mut(|states| {
+                    let mut state = if cur % NUM_STEPS_CACHE == 0 {
+                        states[cur].as_ref().unwrap().clone()
+                    } else {
+                        states[cur].take().unwrap()
+                    };
+                    let done = state.eval_step()?;
+                    if states.len() == cur + 1 {
+                        states.push(Some(state));
+                    } else {
+                        states[cur + 1] = Some(state);
+                    }
+                    Ok(done)
+                })?;
+                self.with_current_step_mut(|s| *s += 1);
+                if done {
+                    callback(WorkerAnswer::Done);
+                    break;
+                }
+            }
+            let new_output_len = self.with_current_state(|s| s.stdout().len());
+            for i in current_output_len..new_output_len {
+                callback(WorkerAnswer::AppendOutput(
+                    self.with_current_state(|state| state.stdout()[i].clone()),
+                ));
             }
             Ok(())
         };
         run().map_err(|e| error_with_location(self.borrow_source(), e))
     }
 
+    fn go_back<F>(&mut self, count: usize, callback: F) -> Result<(), Error>
+    where
+        F: Fn(WorkerAnswer),
+    {
+        let current = *self.borrow_current_step();
+        let target = current.saturating_sub(count);
+        let cached = target / NUM_STEPS_CACHE * NUM_STEPS_CACHE;
+        self.with_current_step_mut(|x| *x = cached);
+        callback(WorkerAnswer::ClearOutput);
+        self.with_current_state(|state| {
+            for out in state.stdout().iter() {
+                callback(WorkerAnswer::AppendOutput(out.clone()));
+            }
+        });
+        self.advance(target - cached, callback)
+    }
+
     fn current_debug_info(&mut self) -> WorkerAnswer {
-        let stack_frames = self.with_state(|state| state.stack_frames());
+        let stack_frames = self.with_current_state(|state| state.stack_frames());
         let mut decorations = vec![];
         for frame in stack_frames {
             for (k, v) in frame.variables {
@@ -193,8 +247,7 @@ impl EvalState {
             for (k, v) in frame.temporaries {
                 let start = get_line_and_char(self.borrow_source(), k.info.start);
                 let end = get_line_and_char(self.borrow_source(), k.info.end);
-                let val = self.with_state(|state| state.format_expr_value(&v));
-
+                let val = self.with_current_state(|state| state.format_expr_value(&v));
                 decorations.push(Decoration {
                     location: (start, end),
                     kind: DecorationKind::Hover(val),
@@ -209,12 +262,12 @@ fn make_eval_state(source: String, input: &str) -> Result<EvalState, Error> {
     let make = || {
         EvalStateTryBuilder {
             program: parse::parse(&source)?,
-            state_builder: |program| {
+            states_builder: |program| {
                 let compiled = compile(program)?;
-                ProgramState::new(compiled, input)
+                Ok(vec![Some(ProgramState::new(compiled, input)?)])
             },
-            output_len: 0,
             source: source.clone(),
+            current_step: 0,
         }
         .try_build()
     };
@@ -268,8 +321,16 @@ impl Worker for PseudocodeEvaluator {
                     scope.respond(id, WorkerAnswer::Done);
                 }
             }
-            WorkerCommand::GoBack { count: _ } => {
-                // TODO(veluca): actually go back
+            WorkerCommand::GoBack { count } => {
+                if let Err(e) = self
+                    .eval_state
+                    .as_mut()
+                    .unwrap()
+                    .go_back(count, |e| scope.respond(id, e))
+                {
+                    scope.respond(id, WorkerAnswer::AddError(e));
+                    scope.respond(id, WorkerAnswer::Done);
+                }
             }
             WorkerCommand::JumpTo { position: _ } => {
                 // TODO(veluca): actually go to the position
