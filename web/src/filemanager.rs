@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use gloo_utils::window;
 use log::{info, warn};
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::{

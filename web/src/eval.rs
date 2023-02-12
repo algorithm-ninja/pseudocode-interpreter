@@ -285,7 +285,7 @@ pub struct EvalBridge {
     worker: SendWrapper<WorkerBridge<PseudocodeEvaluator>>,
     // TODO(veluca): deal with large outputs.
     output: String,
-    output_state: SendWrapper<Option<UseStateHandle<String>>>,
+    output_model: SendWrapper<Option<TextModel>>,
     on_done: SendWrapper<Option<Box<dyn Fn(bool, &str) + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
@@ -300,7 +300,7 @@ impl EvalBridge {
     fn update_output<F: FnOnce(&str) -> String>(&mut self, cb: F) {
         let new_output = cb(&self.output);
         self.output = new_output;
-        self.output_state.as_ref().unwrap().set(self.output.clone())
+        self.output_model.as_ref().unwrap().set_value(&self.output);
     }
 
     fn get_model_markers(&mut self) -> Array {
@@ -456,7 +456,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
                     .spawn("./worker.js"),
             ),
             output: String::new(),
-            output_state: SendWrapper::new(None),
+            output_model: SendWrapper::new(None),
             on_done: SendWrapper::new(None),
             text_model: SendWrapper::new(None),
             action: CurrentAction::Editing,
@@ -467,8 +467,8 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
     })
 }
 
-pub fn set_output_state(output_state: UseStateHandle<String>) {
-    *eval_bridge().lock().unwrap().output_state = Some(output_state)
+pub fn set_output_model(output_model: TextModel) {
+    *eval_bridge().lock().unwrap().output_model = Some(output_model)
 }
 
 pub fn set_action_state(action_state: UseStateHandle<CurrentAction>) {

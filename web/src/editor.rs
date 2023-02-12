@@ -1,4 +1,3 @@
-
 use monaco::{
     api::{CodeEditorOptions, TextModel},
     sys::editor::{BuiltinTheme, IEditorOptionsRenderValidationDecorations, IStandaloneCodeEditor},

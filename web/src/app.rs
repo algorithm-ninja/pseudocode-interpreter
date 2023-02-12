@@ -1,7 +1,6 @@
 use gloo_storage::{LocalStorage, Storage};
 use log::info;
 use monaco::api::TextModel;
-use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yewprint::Spinner;
 
@@ -30,7 +29,7 @@ pub struct GlobalState {
     pub terry: UseStateHandle<TerryData>,
     pub text_model: UseStateHandle<TextModel>,
     pub input_model: UseStateHandle<TextModel>,
-    pub current_output: UseStateHandle<String>,
+    pub output_model: UseStateHandle<TextModel>,
 }
 
 impl GlobalState {
@@ -85,6 +84,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
         .unwrap()
     });
     let input_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
+    let output_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
 
     let global_state = GlobalState {
         dark_theme,
@@ -93,10 +93,9 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
         terry,
         text_model,
         input_model,
-        current_output: use_state_eq(String::new),
+        output_model,
     };
 
-    eval::set_output_state(global_state.current_output.clone());
     eval::set_action_state(global_state.action.clone());
 
     html! {
