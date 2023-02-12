@@ -29,7 +29,7 @@ pub struct GlobalState {
     pub current_task: UseStateHandle<String>,
     pub terry: UseStateHandle<TerryData>,
     pub text_model: UseStateHandle<TextModel>,
-    pub input_textarea: NodeRef,
+    pub input_model: UseStateHandle<TextModel>,
     pub current_output: UseStateHandle<String>,
 }
 
@@ -44,11 +44,7 @@ impl GlobalState {
         T: Fn(bool, &str) + 'static,
     {
         let code = self.text_model.get_value();
-        let input = self
-            .input_textarea
-            .cast::<HtmlInputElement>()
-            .unwrap()
-            .value();
+        let input = self.input_model.get_value();
         info!("input: {}", &input);
         info!("code: {}", &code);
         if debugging {
@@ -88,6 +84,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
         )
         .unwrap()
     });
+    let input_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
 
     let global_state = GlobalState {
         dark_theme,
@@ -95,7 +92,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
         current_task,
         terry,
         text_model,
-        input_textarea: use_node_ref(),
+        input_model,
         current_output: use_state_eq(String::new),
     };
 

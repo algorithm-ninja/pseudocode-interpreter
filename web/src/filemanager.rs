@@ -194,11 +194,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                     }
                 };
 
-                global_state
-                    .input_textarea
-                    .cast::<HtmlInputElement>()
-                    .unwrap()
-                    .set_value(&input);
+                global_state.input_model.set_value(&input);
 
                 let terry = global_state.terry.clone();
                 let source = global_state.text_model.get_value();

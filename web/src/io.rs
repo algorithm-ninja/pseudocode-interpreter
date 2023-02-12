@@ -1,3 +1,4 @@
+use monaco::{api::CodeEditorOptions, sys::editor::BuiltinTheme, yew::CodeEditor};
 use yew::prelude::*;
 
 use crate::app::{CurrentAction, GlobalState};
@@ -10,14 +11,27 @@ pub struct IoProps {
 #[function_component]
 pub fn Input(props: &IoProps) -> yew::Html {
     // TODO(veluca): make ctrl-enter also work on the input.
+
+    let dark_theme = props.global_state.dark_theme.clone();
+    let model = props.global_state.input_model.clone();
+
+    let options = CodeEditorOptions::default()
+        .with_builtin_theme(if *dark_theme {
+            BuiltinTheme::VsDark
+        } else {
+            BuiltinTheme::Vs
+        })
+        .with_automatic_layout(true);
+
+    let options = options.to_sys_options();
+    options.set_read_only(Some(*props.global_state.action != CurrentAction::Editing));
+
     html! {
         <div id="input">
             <div class="io-section-name"> { "Input" } </div>
-            <textarea placeholder="input" ref={props.global_state.input_textarea.clone()}
-                      class={classes!{"bp3-input"}}
-                      disabled={*props.global_state.action != CurrentAction::Editing} >
-                { &*props.global_state.input }
-            </textarea>
+            <div class="editor">
+                <CodeEditor {options} model={(*model).clone()} />
+            </div>
         </div>
     }
 }

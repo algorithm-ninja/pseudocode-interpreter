@@ -122,10 +122,14 @@ div#input {
   flex-flow: column;
 }
 
-div#input>textarea {
+div#input>.editor {
   flex: 1 1 auto;
   width: 100%;
   resize: none;
+}
+
+div#input>.editor>:first-child {
+  height: 100%;
 }
 
 div#output {
