@@ -78,7 +78,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let current_task = use_state(move || first_task);
     let text_model = use_state_eq(|| {
         TextModel::create(
-            "function main()\n\toutput(1)\nend function",
+            "function main()\n\tvariable i: integer\n\toutput(1)\nend function",
             Some(crate::monaco_srs::ID),
             None,
         )

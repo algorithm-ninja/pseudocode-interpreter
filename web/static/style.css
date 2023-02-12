@@ -155,3 +155,20 @@ div#editor>:first-child {
 div#debugger_bar {
   grid-area: debugger;
 }
+
+.variable_value {
+  margin-left: 3px;
+  margin-right: 3px;
+  font-size: 0.9em;
+}
+
+.variable_value::before {
+  margin-left: 3px;
+  content: '▸';
+  margin-right: 3px;
+  font-size: 0.9em;
+}
+
+.evaluated_expr {
+  text-decoration: underline;
+}
