@@ -98,6 +98,10 @@ pub fn Topbar(props: &TopbarProps) -> yew::Html {
                         onclick={|_| { window().open_with_url("./Pseudocodice.pdf").unwrap(); }}
                         icon={Icon::Book}> {"Pseudocode guide"}
                 </Button>
+                <Button
+                        onclick={|_| { window().open_with_url("https://forms.gle/nTr77Qo1EVs6sUzg7").unwrap(); }}
+                        icon={Icon::Annotation}> {"Feedback"}
+                </Button>
                 <Button onclick={toggle_dark_theme}
                         icon={if *global_state.dark_theme {Icon::Flash} else {Icon::Moon}}>
                 </Button>
