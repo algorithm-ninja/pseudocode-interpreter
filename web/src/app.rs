@@ -8,7 +8,7 @@ use yewprint::Spinner;
 use crate::{
     debugger::DebuggerBar,
     editor::Editor,
-    eval::{self, set_action, WorkerCommand},
+    eval::{self, WorkerCommand},
     filemanager::FileManager,
     io::{Input, Output},
     terry::{use_terry, TerryData},
@@ -36,7 +36,6 @@ pub struct GlobalState {
 impl GlobalState {
     pub fn set_action(&self, action: CurrentAction) {
         self.action.set(action);
-        set_action(action);
     }
 
     pub fn start_eval(&self, debugging: bool) {
@@ -48,13 +47,12 @@ impl GlobalState {
             .value();
         info!("input: {}", &input);
         info!("code: {}", &code);
-        let action = self.action.clone();
         if debugging {
             self.set_action(CurrentAction::Debugging);
             eval::set_done_callback(move || {});
         } else {
             self.set_action(CurrentAction::Running);
-            eval::set_done_callback(move || action.set(CurrentAction::Editing));
+            eval::set_done_callback(move || {});
         }
         eval::send_worker_command(WorkerCommand::StartEval {
             source: code,
@@ -95,6 +93,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     };
 
     eval::set_output_state(global_state.current_output.clone());
+    eval::set_use_action(global_state.action.clone());
 
     html! {
         <div class={classes!(if *global_state.dark_theme {"bp3-dark"} else {""})} id="main">

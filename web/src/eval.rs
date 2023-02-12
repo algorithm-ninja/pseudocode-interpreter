@@ -24,7 +24,7 @@ use pseudocode_interpreter::{
 use send_wrapper::SendWrapper;
 use yew::UseStateHandle;
 
-use crate::{app::CurrentAction};
+use crate::app::CurrentAction;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum WorkerCommand {
@@ -250,6 +250,7 @@ pub struct EvalBridge {
     on_done: SendWrapper<Option<Box<dyn Fn() + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
+    use_action: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
     has_fresh_debug_info: bool,
 }
 
@@ -346,6 +347,13 @@ impl EvalBridge {
                 if let Some(x) = &*self.on_done {
                     x()
                 }
+                if self.action == CurrentAction::Running {
+                    self.action = CurrentAction::Editing;
+                    self.use_action
+                        .as_ref()
+                        .unwrap()
+                        .set(CurrentAction::Editing);
+                }
             }
             WorkerAnswer::AddError(err) => {
                 self.update_output(|current_output| {
@@ -398,6 +406,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             on_done: SendWrapper::new(None),
             text_model: SendWrapper::new(None),
             action: CurrentAction::Editing,
+            use_action: SendWrapper::new(None),
             has_fresh_debug_info: false,
         })
     })
@@ -405,6 +414,10 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
 
 pub fn set_output_state(output_state: UseStateHandle<String>) {
     *eval_bridge().lock().unwrap().output_state = Some(output_state)
+}
+
+pub fn set_use_action(use_action: UseStateHandle<CurrentAction>) {
+    *eval_bridge().lock().unwrap().use_action = Some(use_action)
 }
 
 pub fn set_done_callback<F: Fn() + 'static>(on_done: F) {
