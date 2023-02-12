@@ -193,7 +193,8 @@ impl EvalState {
             for (k, v) in frame.temporaries {
                 let start = get_line_and_char(self.borrow_source(), k.info.start);
                 let end = get_line_and_char(self.borrow_source(), k.info.end);
-                let val = format!("{:?}", v);
+                let val = self.with_state(|state| state.format_expr_value(&v));
+
                 decorations.push(Decoration {
                     location: (start, end),
                     kind: DecorationKind::Hover(val),

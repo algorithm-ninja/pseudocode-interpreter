@@ -1039,7 +1039,10 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     LValueStorageLocation::Local(l) => {
                         self.add_operation(
                             move |state, _: ()| {
-                                Ok(RValue::new(state.lvalues.len() - l - 1, vec![]))
+                                Ok(RValue::new(
+                                    (state.lvalues.len() - l - 1, var.clone()),
+                                    vec![],
+                                ))
                             },
                             (),
                             Some(expr),
@@ -1047,7 +1050,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     }
                     LValueStorageLocation::Global(l) => {
                         self.add_operation(
-                            move |_, _: ()| Ok(RValue::new(l, vec![])),
+                            move |_, _: ()| Ok(RValue::new((l, var.clone()), vec![])),
                             (),
                             Some(expr),
                         );
@@ -1203,7 +1206,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                             for (entry, lentry) in rvals.iter().zip(lvals.into_iter()) {
                                 let RValue::Single(entry) = entry else { panic!("Nested rvalue tuples"); };
 
-                                let mut current_value = &mut state.lvalues[entry.lstack_pos];
+                                let mut current_value = &mut state.lvalues[entry.lstack_pos.0];
                                 for x in entry.indices.iter().rev() {
                                     match current_value {
                                         LValue::Array(arr) => {

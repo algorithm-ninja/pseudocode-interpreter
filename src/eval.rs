@@ -4,10 +4,12 @@ use std::{
     rc::Rc,
 };
 
+use itertools::Itertools;
+
 use crate::{
     ast::{Ast, Expr, FnIndex, Item, Node, Program, VarIndex},
     error::Error,
-    value::{LValue, RValue},
+    value::{LValue, RValue, RValueEntry},
 };
 
 pub type Result<T, A> = std::result::Result<T, Error<A>>;
@@ -255,5 +257,34 @@ impl<'a, A: Ast> ProgramState<'a, A> {
         // Return stack frames top to bottom.
         ret.reverse();
         ret
+    }
+
+    fn format_rvalue_entry(&self, rvalue_entry: &RValueEntry) -> String {
+        format!(
+            "{}{}",
+            self.program.ast.var(rvalue_entry.lstack_pos.1).ident.name,
+            rvalue_entry
+                .indices
+                .iter()
+                .map(|i| format!("[{}]", i))
+                .join("")
+        )
+    }
+
+    fn format_rvalue(&self, rvalue: &RValue) -> String {
+        match rvalue {
+            RValue::Tuple(vals) => format!(
+                "({})",
+                vals.into_iter().map(|x| self.format_rvalue(x)).join(",")
+            ),
+            RValue::Single(entry) => self.format_rvalue_entry(entry),
+        }
+    }
+
+    pub fn format_expr_value(&self, expr_value: &ExprValue) -> String {
+        match expr_value {
+            ExprValue::LValue(l) => l.to_string(),
+            ExprValue::RValue(r) => self.format_rvalue(r),
+        }
     }
 }

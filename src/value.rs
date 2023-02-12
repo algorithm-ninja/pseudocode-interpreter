@@ -4,7 +4,7 @@ use im::{HashMap, OrdSet, Vector};
 use itertools::Itertools;
 use ordered_float::NotNan;
 
-use crate::ast::{Ast, Type};
+use crate::ast::{Ast, Type, VarIndex};
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum LValue {
@@ -86,7 +86,7 @@ impl Display for LValue {
 
 #[derive(Clone, Debug)]
 pub struct RValueEntry {
-    pub lstack_pos: usize,
+    pub lstack_pos: (usize, VarIndex),
     // TODO(veluca): consider using a small-vector.
     pub indices: Vec<i64>,
 }
@@ -98,7 +98,7 @@ pub enum RValue {
 }
 
 impl RValue {
-    pub fn new(lstack_pos: usize, indices: Vec<i64>) -> Self {
+    pub fn new(lstack_pos: (usize, VarIndex), indices: Vec<i64>) -> Self {
         Self::Single(RValueEntry {
             lstack_pos,
             indices,
