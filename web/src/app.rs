@@ -39,7 +39,10 @@ impl GlobalState {
         set_action(action);
     }
 
-    pub fn start_eval(&self, debugging: bool) {
+    pub fn start_eval_with_callback<T>(&self, debugging: bool, on_finish: T)
+    where
+        T: Fn(bool, &str) + 'static,
+    {
         let code = self.text_model.get_value();
         let input = self
             .input_textarea
@@ -50,15 +53,18 @@ impl GlobalState {
         info!("code: {}", &code);
         if debugging {
             self.set_action(CurrentAction::Debugging);
-            eval::set_done_callback(move || {});
         } else {
             self.set_action(CurrentAction::Running);
-            eval::set_done_callback(move || {});
         }
+        eval::set_done_callback(on_finish);
         eval::send_worker_command(WorkerCommand::StartEval {
             source: code,
             input,
         });
+    }
+
+    pub fn start_eval(&self, debugging: bool) {
+        self.start_eval_with_callback(debugging, |_, _| {});
     }
 }
 

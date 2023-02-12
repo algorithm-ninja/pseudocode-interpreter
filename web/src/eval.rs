@@ -48,7 +48,7 @@ pub struct ExpressionValue {
     value: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum WorkerAnswer {
     ClearOutput,
     ClearErrors,
@@ -247,7 +247,7 @@ pub struct EvalBridge {
     // TODO(veluca): deal with large outputs.
     output: String,
     output_state: SendWrapper<Option<UseStateHandle<String>>>,
-    on_done: SendWrapper<Option<Box<dyn Fn() + 'static>>>,
+    on_done: SendWrapper<Option<Box<dyn Fn(bool, &str) + 'static>>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
     use_action: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
@@ -331,7 +331,12 @@ impl EvalBridge {
                         self.worker.send(WorkerCommand::GetCurrentDebugInfo);
                     }
                 }
-                _ => {}
+                _ => {
+                    // Signal that execution stopped early
+                    if let Some(x) = &*self.on_done {
+                        x(false, &self.output)
+                    }
+                }
             },
             WorkerAnswer::ClearOutput => {
                 self.update_output(|_| "".into());
@@ -345,7 +350,7 @@ impl EvalBridge {
             }
             WorkerAnswer::Done => {
                 if let Some(x) = &*self.on_done {
-                    x()
+                    x(true, &self.output)
                 }
                 if self.action == CurrentAction::Running {
                     self.action = CurrentAction::Editing;
@@ -420,7 +425,7 @@ pub fn set_use_action(use_action: UseStateHandle<CurrentAction>) {
     *eval_bridge().lock().unwrap().use_action = Some(use_action)
 }
 
-pub fn set_done_callback<F: Fn() + 'static>(on_done: F) {
+pub fn set_done_callback<F: Fn(bool, &str) + 'static>(on_done: F) {
     *eval_bridge().lock().unwrap().on_done = Some(Box::new(on_done))
 }
 

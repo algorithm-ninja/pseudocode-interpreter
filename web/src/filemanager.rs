@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
 use gloo_utils::window;
+use log::{info, warn};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use crate::{
     app::{CurrentAction, GlobalState},
     eval::{send_worker_command, WorkerCommand},
+    terry,
 };
 
 use yewprint::{
@@ -165,14 +168,76 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
     let stepfw = move |_| send_worker_command(WorkerCommand::Advance { count: 1 });
     let fastfw = move |_| send_worker_command(WorkerCommand::Advance { count: STEP_SIZE });
 
+    let sub_in_progress = use_state(|| false);
+
+    let submit = {
+        let global_state = global_state.clone();
+        let sub_in_progress = sub_in_progress.clone();
+
+        move |_| {
+            let global_state = global_state.clone();
+            let sub_in_progress = sub_in_progress.clone();
+
+            info!("Submit");
+            sub_in_progress.set(true);
+
+            let task: String = (*global_state.current_task).to_owned();
+
+            wasm_bindgen_futures::spawn_local(async move {
+                let input = terry::download_input(global_state.terry.clone(), &task).await;
+
+                let input = match input {
+                    Ok(input) => input,
+                    Err(err) => {
+                        warn!("Downloading input failed: {err:?}");
+                        return;
+                    }
+                };
+
+                global_state
+                    .input_textarea
+                    .cast::<HtmlInputElement>()
+                    .unwrap()
+                    .set_value(&input);
+
+                let terry = global_state.terry.clone();
+                let source = global_state.text_model.get_value();
+                global_state.start_eval_with_callback(false, move |completed, output| {
+                    let terry = terry.clone();
+                    let task = task.clone();
+                    let sub_in_progress = sub_in_progress.clone();
+                    let output = output.to_owned();
+                    let source = source.clone();
+
+                    wasm_bindgen_futures::spawn_local(async move {
+                        info!("Completed: {completed}. Result: {output}");
+
+                        if completed {
+                            if let Err(e) =
+                                terry::submit(terry.clone(), &task, &source, &output).await
+                            {
+                                warn!("Submission failed: {e}");
+                                return;
+                            }
+                        }
+
+                        sub_in_progress.set(false);
+                    });
+                });
+            });
+        }
+    };
+
     // TODO(veluca): saved files
 
     let tree: TreeData<()> = tree.into();
 
     html! {
         <div id="filemanager">
-            // TODO(veluca): do something with debugging controls and submit button.
+            // TODO(veluca): do something with debugging controls.
             <Button icon={Icon::SendMessage} intent={Intent::Success} class={classes!("submitbutton")}
+                    onclick={submit}
+                    loading={*sub_in_progress}
                     disabled={*global_state.action != CurrentAction::Editing}>{"Submit"}</Button>
             <div id="maincontrols">
                 <ButtonGroup>

@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use anyhow::{bail, Context, Error, Result};
 use chrono::{DateTime, Local};
 use futures::future::join_all;
-use gloo_net::http::Request;
+use gloo_net::http::{FormData, Request};
+use js_sys::Array;
 use serde::Deserialize;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::Blob;
 use yew::prelude::*;
 
-use log::warn;
+use log::{info, warn};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerryTaskInfo {
@@ -18,6 +20,18 @@ pub struct TerryTaskInfo {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerryInputInfo {
+    pub id: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct TerryOutputInfo {
+    pub id: String,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct TerrySourceInfo {
     pub id: String,
     pub path: String,
 }
@@ -149,8 +163,149 @@ pub fn use_terry() -> UseStateHandle<Option<TerryData>> {
     terry
 }
 
-pub async fn refresh_terry(terry: UseStateHandle<Option<TerryData>>) -> Result<()> {
+async fn refresh_terry(terry: UseStateHandle<TerryData>) -> Result<()> {
     let terry_data = get_contest_info().await?;
-    terry.set(Some(terry_data));
+    terry.set(terry_data);
+    Ok(())
+}
+
+async fn request_new_input(terry: UseStateHandle<TerryData>, task_name: &str) -> Result<String> {
+    info!("Requesting input for {task_name}");
+
+    let data = FormData::new().unwrap();
+    data.append_with_str("token", &terry.token).unwrap();
+    data.append_with_str("task", task_name).unwrap();
+
+    let info = Request::post("/api/generate_input")
+        .body(data)
+        .send()
+        .await?
+        .json::<TerryInputInfo>()
+        .await?;
+
+    refresh_terry(terry).await?;
+
+    Ok(info.path)
+}
+
+pub async fn download_input(terry: UseStateHandle<TerryData>, task_name: &str) -> Result<String> {
+    info!("Downloading input for {task_name}");
+    let task_info = terry
+        .tasks
+        .get(task_name)
+        .context("Task not found in terry data")?;
+
+    let input_path = match &task_info.current_input {
+        Some(info) => info.path.clone(),
+        None => request_new_input(terry.clone(), task_name).await?,
+    };
+
+    let input = Request::get(&format!("/files/{input_path}"))
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    Ok(input)
+}
+
+fn get_input_id<'a>(terry: &'a TerryData, task_name: &str) -> Result<&'a str> {
+    let task_info = terry
+        .tasks
+        .get(task_name)
+        .context("Task not found in terry data")?;
+
+    let TerryInputInfo { id, .. } = task_info
+        .current_input
+        .as_ref()
+        .context("Inconsistent terry data")?;
+
+    Ok(id)
+}
+
+async fn upload_output(
+    terry: &TerryData,
+    task_name: &str,
+    output: &str,
+) -> Result<TerryOutputInfo> {
+    info!("Uploading output for {task_name}. Data: {output}");
+    let input_id = get_input_id(terry, task_name)?;
+
+    let arr = Array::new();
+    arr.push(&JsValue::from_str(output));
+    let blob = Blob::new_with_str_sequence(&arr).unwrap();
+
+    let data = FormData::new().unwrap();
+    data.append_with_str("input_id", input_id).unwrap();
+    data.append_with_blob_and_filename("file", &blob, &format!("{task_name}_output.txt"))
+        .unwrap();
+
+    let info = Request::post("/api/upload_output")
+        .body(data)
+        .send()
+        .await?
+        .json::<TerryOutputInfo>()
+        .await?;
+
+    info!("{info:?}");
+
+    Ok(info)
+}
+
+async fn upload_source(
+    terry: &TerryData,
+    task_name: &str,
+    source: &str,
+) -> Result<TerrySourceInfo> {
+    info!("Uploading source for {task_name}. Data: {source}");
+    let input_id = get_input_id(terry, task_name)?;
+
+    let arr = Array::new();
+    arr.push(&JsValue::from_str(source));
+    let blob = Blob::new_with_str_sequence(&arr).unwrap();
+
+    let data = FormData::new().unwrap();
+    data.append_with_str("input_id", input_id).unwrap();
+    data.append_with_blob_and_filename("file", &blob, &format!("{task_name}.srs"))
+        .unwrap();
+
+    let info = Request::post("/api/upload_source")
+        .body(data)
+        .send()
+        .await?
+        .json::<TerrySourceInfo>()
+        .await?;
+
+    info!("{info:?}");
+
+    Ok(info)
+}
+
+pub async fn submit(
+    terry: UseStateHandle<TerryData>,
+    task_name: &str,
+    source: &str,
+    output: &str,
+) -> Result<()> {
+    let source_info = upload_source(&terry, task_name, source).await?;
+    let output_info = upload_output(&terry, task_name, output).await?;
+    let input_id = get_input_id(&terry, task_name)?;
+
+    let data = FormData::new().unwrap();
+    data.append_with_str("input_id", input_id).unwrap();
+    data.append_with_str("source_id", &source_info.id).unwrap();
+    data.append_with_str("output_id", &output_info.id).unwrap();
+
+    let info = Request::post("/api/submit")
+        .body(data)
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    info!("{info}");
+
+    refresh_terry(terry.clone()).await?;
+
     Ok(())
 }

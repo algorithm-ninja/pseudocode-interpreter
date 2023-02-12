@@ -19,7 +19,7 @@ anyhow = "1.0.68"
 chrono = { version = "0.4.23", features = ["serde"] }
 console_error_panic_hook = { version = "0.1.6", optional = true }
 console_log = "0.2.0"
-gloo-net = "0.2.6"
+gloo-net = { version = "0.2.6", features = ["http"] }
 gloo-timers = { version = "0.2.6", features = ["futures"] }
 gloo-utils = "0.1.6"
 gloo-worker = { version = "0.2.1", features = ["futures"] }
