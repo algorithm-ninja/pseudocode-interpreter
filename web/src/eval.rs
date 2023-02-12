@@ -22,6 +22,8 @@ use pseudocode_interpreter::{
     parse::{self, TextAst},
 };
 use send_wrapper::SendWrapper;
+
+use web_sys::console;
 use yew::UseStateHandle;
 
 use crate::app::CurrentAction;
@@ -37,15 +39,58 @@ pub enum WorkerCommand {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct VariableValue {
-    location: (usize, usize),
-    value: String,
+enum DecorationKind {
+    After(String),
+    Hover(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ExpressionValue {
+pub struct Decoration {
     location: ((usize, usize), (usize, usize)),
-    value: String,
+    kind: DecorationKind,
+}
+
+impl Decoration {
+    fn to_model_delta_decoration(self) -> Object {
+        let range = Object::new();
+        js_sys::Reflect::set(
+            &range,
+            &"startLineNumber".into(),
+            &self.location.0 .0.into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(&range, &"startColumn".into(), &self.location.0 .1.into()).unwrap();
+        js_sys::Reflect::set(&range, &"endLineNumber".into(), &self.location.1 .0.into()).unwrap();
+        js_sys::Reflect::set(&range, &"endColumn".into(), &self.location.1 .1.into()).unwrap();
+
+        let options = Object::new();
+        js_sys::Reflect::set(&options, &"showIfCollapsed".into(), &true.into()).unwrap();
+        match self.kind {
+            DecorationKind::After(s) => {
+                let after = Object::new();
+                js_sys::Reflect::set(&after, &"content".into(), &s.into()).unwrap();
+                js_sys::Reflect::set(&after, &"inlineClassName".into(), &"variable_value".into())
+                    .unwrap();
+                js_sys::Reflect::set(&options, &"after".into(), &after).unwrap();
+            }
+            DecorationKind::Hover(s) => {
+                let hover = Object::new();
+                js_sys::Reflect::set(&hover, &"value".into(), &s.into()).unwrap();
+                js_sys::Reflect::set(&options, &"hoverMessage".into(), &hover).unwrap();
+                js_sys::Reflect::set(
+                    &options,
+                    &"inlineClassName".into(),
+                    &"evaluated_expr".into(),
+                )
+                .unwrap();
+            }
+        }
+
+        let decoration = Object::new();
+        js_sys::Reflect::set(&decoration, &"options".into(), &options).unwrap();
+        js_sys::Reflect::set(&decoration, &"range".into(), &range).unwrap();
+        decoration
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,10 +102,7 @@ pub enum WorkerAnswer {
     AddError(Error),
     AddQuietError(Error),
     CommandDone,
-    DebugInfo {
-        variable_values: Vec<VariableValue>,
-        expression_values: Vec<ExpressionValue>,
-    },
+    DebugInfo(Vec<Decoration>),
     InvalidateDebugInfo,
 }
 
@@ -137,31 +179,28 @@ impl EvalState {
 
     fn current_debug_info(&mut self) -> WorkerAnswer {
         let stack_frames = self.with_state(|state| state.stack_frames());
-        let mut variable_values = vec![];
-        let mut expression_values = vec![];
+        let mut decorations = vec![];
         for frame in stack_frames {
             for (k, v) in frame.variables {
                 let loc = self.with_program(|p| p.var(k)).ident.info.end;
+                let loc = get_line_and_char(self.borrow_source(), loc);
                 let val = format!("{}", v);
-                variable_values.push(VariableValue {
-                    location: get_line_and_char(self.borrow_source(), loc),
-                    value: val,
+                decorations.push(Decoration {
+                    location: (loc, loc),
+                    kind: DecorationKind::After(val),
                 });
             }
             for (k, v) in frame.temporaries {
                 let start = get_line_and_char(self.borrow_source(), k.info.start);
                 let end = get_line_and_char(self.borrow_source(), k.info.end);
                 let val = format!("{:?}", v);
-                expression_values.push(ExpressionValue {
+                decorations.push(Decoration {
                     location: (start, end),
-                    value: val,
+                    kind: DecorationKind::Hover(val),
                 });
             }
         }
-        WorkerAnswer::DebugInfo {
-            variable_values,
-            expression_values,
-        }
+        WorkerAnswer::DebugInfo(decorations)
     }
 }
 
@@ -252,6 +291,7 @@ pub struct EvalBridge {
     action: CurrentAction,
     action_state: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
     has_fresh_debug_info: bool,
+    current_decorations: SendWrapper<Array>,
 }
 
 const MARKER_OWNER: &str = "srs";
@@ -269,56 +309,69 @@ impl EvalBridge {
         get_model_markers(&filter)
     }
 
-    fn set_variable_values(&mut self, variable_values: Vec<VariableValue>) {
-        info!("{:?}", variable_values);
-        //
+    fn add_error(&mut self, err: Error) {
+        let markers = self.get_model_markers();
+        let new_marker = Object::new();
+        js_sys::Reflect::set(
+            &new_marker,
+            &"startLineNumber".into(),
+            &err.location.0 .0.into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &new_marker,
+            &"startColumn".into(),
+            &err.location.0 .1.into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &new_marker,
+            &"endLineNumber".into(),
+            &err.location.1 .0.into(),
+        )
+        .unwrap();
+        js_sys::Reflect::set(&new_marker, &"endColumn".into(), &err.location.1 .1.into()).unwrap();
+        js_sys::Reflect::set(&new_marker, &"message".into(), &err.message.into()).unwrap();
+        js_sys::Reflect::set(
+            &new_marker,
+            &"severity".into(),
+            &MarkerSeverity::Error.to_value().into(),
+        )
+        .unwrap();
+
+        markers.push(&new_marker);
+
+        set_model_markers(
+            self.text_model.as_ref().unwrap().as_ref(),
+            MARKER_OWNER,
+            &markers,
+        );
     }
 
-    fn set_expression_values(&mut self, expression_values: Vec<ExpressionValue>) {
-        info!("{:?}", expression_values);
-        //
+    fn set_decorations(&mut self, decorations: Vec<Decoration>) {
+        info!("{:?}", decorations);
+        let new_decorations: Array = decorations
+            .into_iter()
+            .map(Decoration::to_model_delta_decoration)
+            .collect();
+        self.current_decorations = SendWrapper::new(
+            self.text_model
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .delta_decorations(&self.current_decorations, &new_decorations, None),
+        );
+        console::log(
+            &self
+                .text_model
+                .as_ref()
+                .unwrap()
+                .as_ref()
+                .get_all_decorations(None, Some(false)),
+        );
     }
 
     fn handle_answer(&mut self, answer: WorkerAnswer) {
-        let add_error = |bridge: &mut Self, err: Error| {
-            let markers = bridge.get_model_markers();
-            let new_marker = Object::new();
-            js_sys::Reflect::set(
-                &new_marker,
-                &"startLineNumber".into(),
-                &err.location.0 .0.into(),
-            )
-            .unwrap();
-            js_sys::Reflect::set(
-                &new_marker,
-                &"startColumn".into(),
-                &err.location.0 .1.into(),
-            )
-            .unwrap();
-            js_sys::Reflect::set(
-                &new_marker,
-                &"endLineNumber".into(),
-                &err.location.1 .0.into(),
-            )
-            .unwrap();
-            js_sys::Reflect::set(&new_marker, &"endColumn".into(), &err.location.1 .1.into())
-                .unwrap();
-            js_sys::Reflect::set(&new_marker, &"message".into(), &err.message.into()).unwrap();
-            js_sys::Reflect::set(
-                &new_marker,
-                &"severity".into(),
-                &MarkerSeverity::Error.to_value().into(),
-            )
-            .unwrap();
-
-            markers.push(&new_marker);
-
-            set_model_markers(
-                bridge.text_model.as_ref().unwrap().as_ref(),
-                MARKER_OWNER,
-                &markers,
-            );
-        };
         match answer {
             WorkerAnswer::CommandDone => match self.action {
                 // Continue execution until termination if running.
@@ -369,10 +422,10 @@ impl EvalBridge {
                         format!("{current_output}\n{msg}")
                     }
                 });
-                add_error(self, err);
+                self.add_error(err);
             }
             WorkerAnswer::AddQuietError(err) => {
-                add_error(self, err);
+                self.add_error(err);
             }
             WorkerAnswer::AppendOutput(out) => {
                 self.update_output(|current_output| {
@@ -383,12 +436,8 @@ impl EvalBridge {
                     }
                 });
             }
-            WorkerAnswer::DebugInfo {
-                variable_values,
-                expression_values,
-            } => {
-                self.set_variable_values(variable_values);
-                self.set_expression_values(expression_values);
+            WorkerAnswer::DebugInfo(decorations) => {
+                self.set_decorations(decorations);
             }
             WorkerAnswer::InvalidateDebugInfo => {
                 self.has_fresh_debug_info = false;
@@ -413,6 +462,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             action: CurrentAction::Editing,
             action_state: SendWrapper::new(None),
             has_fresh_debug_info: false,
+            current_decorations: SendWrapper::new(Array::new()),
         })
     })
 }
@@ -434,7 +484,10 @@ pub fn set_text_model(text_model: TextModel) {
 }
 
 pub fn set_action(action: CurrentAction) {
-    eval_bridge().lock().unwrap().action = action
+    eval_bridge().lock().unwrap().action = action;
+    if action == CurrentAction::Editing {
+        eval_bridge().lock().unwrap().set_decorations(vec![])
+    }
 }
 
 pub fn send_worker_command(command: WorkerCommand) {
