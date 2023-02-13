@@ -157,10 +157,11 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 let terry = terry.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     let path = format!("{}.srs", &*current_task);
-                    match terry::download_statement_file(terry.clone(), &current_task, &path).await {
+                    match terry::download_statement_file(terry.clone(), &current_task, &path).await
+                    {
                         Err(e) => warn!("Downloading source failed: {e}"),
                         Ok(source) if !source.is_empty() => text_model.set_value(&source),
-                        _ => {},
+                        _ => {}
                     };
                 });
             }
@@ -172,7 +173,8 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 let terry = terry.clone();
                 wasm_bindgen_futures::spawn_local(async move {
                     let path = format!("{}_input_example.txt", &*current_task);
-                    match terry::download_statement_file(terry.clone(), &current_task, &path).await {
+                    match terry::download_statement_file(terry.clone(), &current_task, &path).await
+                    {
                         Err(e) => warn!("Downloading input failed: {e}"),
                         Ok(source) if !source.is_empty() => input_model.set_value(&source),
                         _ => {}
