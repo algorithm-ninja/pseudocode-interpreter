@@ -185,10 +185,11 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
             wasm_bindgen_futures::spawn_local(async move {
                 let input = terry::download_input(global_state.terry.clone(), &task).await;
 
-                let input = match input {
+                let (input, input_info) = match input {
                     Ok(input) => input,
                     Err(err) => {
                         warn!("Downloading input failed: {err:?}");
+                        sub_in_progress.set(false);
                         return;
                     }
                 };
@@ -197,22 +198,28 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
 
                 let terry = global_state.terry.clone();
                 let source = global_state.text_model.get_value();
-                global_state.start_eval_with_callback(false, move |completed, output| {
+                global_state.start_eval_with_callback(false, move |has_errors, output| {
                     let terry = terry.clone();
                     let task = task.clone();
                     let sub_in_progress = sub_in_progress.clone();
                     let output = output.to_owned();
                     let source = source.clone();
+                    let input_info = input_info.clone();
 
                     wasm_bindgen_futures::spawn_local(async move {
-                        info!("Completed: {completed}. Result: {output}");
+                        info!("has_errors: {has_errors}. Result: {output}");
 
-                        if completed {
-                            if let Err(e) =
-                                terry::submit(terry.clone(), &task, &source, &output).await
+                        if !has_errors {
+                            if let Err(e) = terry::submit(
+                                terry.clone(),
+                                &task,
+                                &input_info.id,
+                                &source,
+                                &output,
+                            )
+                            .await
                             {
                                 warn!("Submission failed: {e}");
-                                return;
                             }
                         }
 

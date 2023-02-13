@@ -169,7 +169,10 @@ async fn refresh_terry(terry: UseStateHandle<TerryData>) -> Result<()> {
     Ok(())
 }
 
-async fn request_new_input(terry: UseStateHandle<TerryData>, task_name: &str) -> Result<String> {
+async fn request_new_input(
+    terry: UseStateHandle<TerryData>,
+    task_name: &str,
+) -> Result<TerryInputInfo> {
     info!("Requesting input for {task_name}");
 
     let data = FormData::new().unwrap();
@@ -185,51 +188,35 @@ async fn request_new_input(terry: UseStateHandle<TerryData>, task_name: &str) ->
 
     refresh_terry(terry).await?;
 
-    Ok(info.path)
+    Ok(info)
 }
 
-pub async fn download_input(terry: UseStateHandle<TerryData>, task_name: &str) -> Result<String> {
+pub async fn download_input(
+    terry: UseStateHandle<TerryData>,
+    task_name: &str,
+) -> Result<(String, TerryInputInfo)> {
     info!("Downloading input for {task_name}");
     let task_info = terry
         .tasks
         .get(task_name)
         .context("Task not found in terry data")?;
 
-    let input_path = match &task_info.current_input {
-        Some(info) => info.path.clone(),
+    let input_info = match &task_info.current_input {
+        Some(info) => info.clone(),
         None => request_new_input(terry.clone(), task_name).await?,
     };
 
-    let input = Request::get(&format!("/files/{input_path}"))
+    let input = Request::get(&format!("/files/{}", input_info.path))
         .send()
         .await?
         .text()
         .await?;
 
-    Ok(input)
+    Ok((input, input_info))
 }
 
-fn get_input_id<'a>(terry: &'a TerryData, task_name: &str) -> Result<&'a str> {
-    let task_info = terry
-        .tasks
-        .get(task_name)
-        .context("Task not found in terry data")?;
-
-    let TerryInputInfo { id, .. } = task_info
-        .current_input
-        .as_ref()
-        .context("Inconsistent terry data")?;
-
-    Ok(id)
-}
-
-async fn upload_output(
-    terry: &TerryData,
-    task_name: &str,
-    output: &str,
-) -> Result<TerryOutputInfo> {
+async fn upload_output(task_name: &str, input_id: &str, output: &str) -> Result<TerryOutputInfo> {
     info!("Uploading output for {task_name}. Data: {output}");
-    let input_id = get_input_id(terry, task_name)?;
 
     let arr = Array::new();
     arr.push(&JsValue::from_str(output));
@@ -252,13 +239,8 @@ async fn upload_output(
     Ok(info)
 }
 
-async fn upload_source(
-    terry: &TerryData,
-    task_name: &str,
-    source: &str,
-) -> Result<TerrySourceInfo> {
+async fn upload_source(task_name: &str, input_id: &str, source: &str) -> Result<TerrySourceInfo> {
     info!("Uploading source for {task_name}. Data: {source}");
-    let input_id = get_input_id(terry, task_name)?;
 
     let arr = Array::new();
     arr.push(&JsValue::from_str(source));
@@ -284,12 +266,12 @@ async fn upload_source(
 pub async fn submit(
     terry: UseStateHandle<TerryData>,
     task_name: &str,
+    input_id: &str,
     source: &str,
     output: &str,
 ) -> Result<()> {
-    let source_info = upload_source(&terry, task_name, source).await?;
-    let output_info = upload_output(&terry, task_name, output).await?;
-    let input_id = get_input_id(&terry, task_name)?;
+    let source_info = upload_source(task_name, input_id, source).await?;
+    let output_info = upload_output(task_name, input_id, output).await?;
 
     let data = FormData::new().unwrap();
     data.append_with_str("input_id", input_id).unwrap();

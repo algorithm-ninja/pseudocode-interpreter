@@ -354,6 +354,7 @@ pub struct EvalBridge {
     action_state: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
     has_fresh_debug_info: bool,
     current_decorations: SendWrapper<Array>,
+    has_errors: bool,
 }
 
 const MARKER_OWNER: &str = "srs";
@@ -408,6 +409,7 @@ impl EvalBridge {
             MARKER_OWNER,
             &markers,
         );
+        self.has_errors = true;
     }
 
     fn set_decorations(&mut self, decorations: Vec<Decoration>) {
@@ -446,10 +448,10 @@ impl EvalBridge {
                         self.worker.send(WorkerCommand::GetCurrentDebugInfo);
                     }
                 }
-                _ => {
-                    // Signal that execution stopped early
+                CurrentAction::Editing => {
+                    // Signal that execution stopped
                     if let Some(x) = &*self.on_done {
-                        x(false, &self.output)
+                        x(self.has_errors, &self.output)
                     }
                 }
             },
@@ -462,11 +464,9 @@ impl EvalBridge {
                     MARKER_OWNER,
                     &Array::new(),
                 );
+                self.has_errors = false;
             }
             WorkerAnswer::Done => {
-                if let Some(x) = &*self.on_done {
-                    x(true, &self.output)
-                }
                 if self.action == CurrentAction::Running {
                     self.action = CurrentAction::Editing;
                     self.action_state
@@ -525,6 +525,7 @@ fn eval_bridge() -> &'static Mutex<EvalBridge> {
             action_state: SendWrapper::new(None),
             has_fresh_debug_info: false,
             current_decorations: SendWrapper::new(Array::new()),
+            has_errors: false,
         })
     })
 }

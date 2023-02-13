@@ -1,11 +1,11 @@
+use anyhow::Result;
 use gloo_storage::{LocalStorage, Storage};
 use log::info;
 use once_cell::sync::OnceCell;
-use salsa20::Salsa20;
 use salsa20::cipher::{KeyIvInit, StreamCipher};
-use sha2::{Sha256, Digest};
+use salsa20::Salsa20;
+use sha2::{Digest, Sha256};
 use std::sync::Mutex;
-use anyhow::Result;
 
 struct FileStorage {
     token: String,

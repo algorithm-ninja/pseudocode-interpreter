@@ -9,7 +9,7 @@ use yew::prelude::*;
 
 use crate::{
     app::{CurrentAction, GlobalState},
-    eval::{send_worker_command, set_text_model},
+    eval::{send_worker_command, set_done_callback, set_text_model},
     filestorage, monaco_srs,
 };
 
@@ -29,6 +29,7 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
             let text_model = (*text_model).clone();
             set_text_model(text_model.clone());
             std::mem::forget(text_model.clone().on_did_change_content(move |_| {
+                set_done_callback(|_, _| {});
                 send_worker_command(crate::eval::WorkerCommand::Parse {
                     source: text_model.get_value(),
                 });
