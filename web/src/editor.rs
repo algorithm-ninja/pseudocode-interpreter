@@ -10,7 +10,7 @@ use yew::prelude::*;
 use crate::{
     app::{CurrentAction, GlobalState},
     eval::{send_worker_command, set_text_model},
-    monaco_srs,
+    filestorage, monaco_srs,
 };
 
 #[derive(PartialEq, Properties)]
@@ -31,7 +31,8 @@ pub fn Editor(props: &EditorProps) -> yew::Html {
             std::mem::forget(text_model.clone().on_did_change_content(move |_| {
                 send_worker_command(crate::eval::WorkerCommand::Parse {
                     source: text_model.get_value(),
-                })
+                });
+                filestorage::save(&text_model.get_value());
             }))
         },
         text_model,

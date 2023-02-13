@@ -1,4 +1,4 @@
-use gloo_storage::{LocalStorage, Storage};
+use gloo_storage::{LocalStorage, SessionStorage, Storage};
 use log::info;
 use monaco::api::TextModel;
 use yew::prelude::*;
@@ -9,6 +9,7 @@ use crate::{
     editor::Editor,
     eval::{self, set_action, WorkerCommand},
     filemanager::FileManager,
+    filestorage,
     io::{Input, Output},
     terry::{use_terry, TerryData},
     topbar::Topbar,
@@ -68,23 +69,37 @@ struct LoadedAppProps {
     terry: UseStateHandle<Option<TerryData>>,
 }
 
+const DEFAULT_SOURCE: &str = "function main()\n\tvariable i: integer\n\toutput(1)\nend function";
+
 #[function_component]
 fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let terry = use_state_eq(move || terry.terry.as_ref().unwrap().clone());
     let dark_theme = use_state(|| LocalStorage::get("dark-theme").unwrap_or(true));
     let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
-    let current_task = use_state(move || first_task);
+    let current_task = use_state(move || SessionStorage::get("current-task").unwrap_or(first_task));
     let text_model = use_state_eq(|| {
-        TextModel::create(
-            "function main()\n\tvariable i: integer\n\toutput(1)\nend function",
-            Some(crate::monaco_srs::ID),
-            None,
-        )
-        .unwrap()
+        TextModel::create(&DEFAULT_SOURCE, Some(crate::monaco_srs::ID), None).unwrap()
     });
     let input_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
     let output_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
+
+    filestorage::set_token(&terry.token);
+
+    {
+        let text_model = text_model.clone();
+        use_effect_with_deps(
+            move |task| {
+                let task: &str = task.as_ref();
+                info!("Switched to task {task}");
+                SessionStorage::set("current-task", task).unwrap();
+                filestorage::set_current_task(task);
+                let source = filestorage::load().unwrap_or(DEFAULT_SOURCE.to_owned());
+                text_model.set_value(&source);
+            },
+            current_task.clone(),
+        );
+    }
 
     let global_state = GlobalState {
         dark_theme,

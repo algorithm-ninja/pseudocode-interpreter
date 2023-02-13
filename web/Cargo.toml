@@ -34,6 +34,9 @@ pseudocode-interpreter = { version = "0.1.0", path = ".." }
 send_wrapper = "0.6.0"
 serde = { version = "1.0.152", features = ["derive"] }
 futures = "0.3.26"
+hex = "0.4.3"
+sha2 = "0.10.6"
+salsa20 = "0.10.2"
 
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.33"

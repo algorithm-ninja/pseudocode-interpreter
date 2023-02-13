@@ -3,6 +3,7 @@ mod debugger;
 mod editor;
 pub mod eval;
 mod filemanager;
+mod filestorage;
 mod io;
 pub mod monaco_srs;
 mod terry;

@@ -1,5 +1,9 @@
 use js_sys::Object;
-use monaco::{api::CodeEditorOptions, sys::editor::{BuiltinTheme, LineNumbersType, IEditorMinimapOptions}, yew::CodeEditor};
+use monaco::{
+    api::CodeEditorOptions,
+    sys::editor::{BuiltinTheme, IEditorMinimapOptions, LineNumbersType},
+    yew::CodeEditor,
+};
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
