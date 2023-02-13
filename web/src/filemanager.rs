@@ -150,28 +150,30 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 .open_with_url(&format!("/task/{}", *current_task))
                 .unwrap();
         }
-        if node_id == template_id && gloo_dialogs::confirm("This will overwrite the current source code. Continue?") {
+        if node_id == template_id
+            && gloo_dialogs::confirm("This will overwrite the current source code. Continue?")
+        {
             let text_model = text_model.clone();
             let current_task = current_task.clone();
             let terry = terry.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let path = format!("{}.srs", &*current_task);
-                match terry::download_statement_file(terry.clone(), &current_task, &path).await
-                {
+                match terry::download_statement_file(terry.clone(), &current_task, &path).await {
                     Err(e) => warn!("Downloading source failed: {e}"),
                     Ok(source) if !source.is_empty() => text_model.set_value(&source),
                     _ => {}
                 };
             });
         }
-        if node_id == example_id && gloo_dialogs::confirm("This will overwrite the current input. Continue?") {
+        if node_id == example_id
+            && gloo_dialogs::confirm("This will overwrite the current input. Continue?")
+        {
             let current_task = current_task.clone();
             let input_model = input_model.clone();
             let terry = terry.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 let path = format!("{}_input_example.txt", &*current_task);
-                match terry::download_statement_file(terry.clone(), &current_task, &path).await
-                {
+                match terry::download_statement_file(terry.clone(), &current_task, &path).await {
                     Err(e) => warn!("Downloading input failed: {e}"),
                     Ok(source) if !source.is_empty() => input_model.set_value(&source),
                     _ => {}
