@@ -1,4 +1,4 @@
-use std::{ops::Range, sync::Mutex, vec};
+use std::{collections::HashMap, ops::Range, sync::Mutex, vec};
 
 use gloo_worker::{HandlerId, Spawnable, Worker, WorkerBridge, WorkerScope};
 use js_sys::{Array, Object};
@@ -138,18 +138,55 @@ fn error_with_location(src: &str, err: error::Error<parse::TextAst>) -> Error {
     }
 }
 
+pub const NUM_STEPS: usize = 10000;
+pub const NUM_STEPS_CACHE: usize = 1024;
+
+struct EvalHistory<'a> {
+    pub cache: HashMap<usize, ProgramState<'a, TextAst>>,
+    current_state: Option<(usize, ProgramState<'a, TextAst>)>,
+}
+
+impl<'a> EvalHistory<'a> {
+    fn new(initial_state: ProgramState<'a, TextAst>) -> Self {
+        let mut cache = HashMap::new();
+        cache.insert(0, initial_state.clone());
+
+        Self {
+            cache,
+            current_state: Some((0, initial_state)),
+        }
+    }
+    fn get_current(&self, idx: usize) -> Option<&ProgramState<'a, TextAst>> {
+        if let Some((i, v)) = &self.current_state {
+            assert_eq!(*i, idx);
+            return Some(v);
+        }
+        None
+    }
+    fn take_current(&mut self, idx: usize) -> Option<ProgramState<'a, TextAst>> {
+        if let Some((i, v)) = self.current_state.take() {
+            assert_eq!(i, idx);
+            return Some(v);
+        }
+        None
+    }
+    fn set_current(&mut self, idx: usize, state: ProgramState<'a, TextAst>) {
+        if idx % NUM_STEPS_CACHE == 0 {
+            self.cache.insert(idx, state.clone());
+        }
+        self.current_state = Some((idx, state));
+    }
+}
+
 #[self_referencing]
 struct EvalState {
     program: Program<TextAst>,
     #[borrows(program)]
     #[not_covariant]
-    states: Vec<Option<ProgramState<'this, TextAst>>>,
+    history: EvalHistory<'this>,
     source: String,
     current_step: usize,
 }
-
-pub const NUM_STEPS: usize = 10000;
-pub const NUM_STEPS_CACHE: usize = 1024;
 
 impl EvalState {
     fn with_current_state<'outer, Ret>(
@@ -157,7 +194,7 @@ impl EvalState {
         callback: impl for<'this> FnOnce(&'outer ProgramState<'this, TextAst>) -> Ret,
     ) -> Ret {
         let cur = *self.borrow_current_step();
-        self.with_states(move |steps| callback(steps[cur].as_ref().unwrap()))
+        self.with_history(move |history| callback(history.get_current(cur).unwrap()))
     }
 
     fn advance<F>(&mut self, mut count: usize, callback: F) -> Result<(), Error>
@@ -168,9 +205,10 @@ impl EvalState {
 
         let current = *self.borrow_current_step();
         let cached = (current + count) / NUM_STEPS_CACHE * NUM_STEPS_CACHE;
-        if cached < self.with_states(|s| s.len()) && cached >= current {
+        if cached >= current && self.with_history(|h| h.cache.contains_key(&cached)) {
             count -= cached - current;
             self.with_current_step_mut(|s| *s = cached);
+            self.with_history_mut(|h| h.set_current(cached, h.cache.get(&cached).unwrap().clone()));
             callback(WorkerAnswer::ClearOutput);
             self.with_current_state(|state| {
                 for out in state.stdout().iter() {
@@ -183,18 +221,10 @@ impl EvalState {
             let current_output_len = self.with_current_state(|s| s.stdout().len());
             for _ in 0..count {
                 let cur = *self.borrow_current_step();
-                let done = self.with_states_mut(|states| {
-                    let mut state = if cur % NUM_STEPS_CACHE == 0 {
-                        states[cur].as_ref().unwrap().clone()
-                    } else {
-                        states[cur].take().unwrap()
-                    };
+                let done = self.with_history_mut(|history| {
+                    let mut state = history.take_current(cur).unwrap();
                     let done = state.eval_step()?;
-                    if states.len() == cur + 1 {
-                        states.push(Some(state));
-                    } else {
-                        states[cur + 1] = Some(state);
-                    }
+                    history.set_current(cur + 1, state);
                     Ok(done)
                 })?;
                 self.with_current_step_mut(|s| *s += 1);
@@ -222,6 +252,7 @@ impl EvalState {
         let target = current.saturating_sub(count);
         let cached = target / NUM_STEPS_CACHE * NUM_STEPS_CACHE;
         self.with_current_step_mut(|x| *x = cached);
+        self.with_history_mut(|h| h.set_current(cached, h.cache.get(&cached).unwrap().clone()));
         callback(WorkerAnswer::ClearOutput);
         self.with_current_state(|state| {
             for out in state.stdout().iter() {
@@ -262,9 +293,10 @@ fn make_eval_state(source: String, input: &str) -> Result<EvalState, Error> {
     let make = || {
         EvalStateTryBuilder {
             program: parse::parse(&source)?,
-            states_builder: |program| {
+            history_builder: |program| {
                 let compiled = compile(program)?;
-                Ok(vec![Some(ProgramState::new(compiled, input)?)])
+                let initial_state = ProgramState::new(compiled, input)?;
+                Ok(EvalHistory::new(initial_state))
             },
             source: source.clone(),
             current_step: 0,
