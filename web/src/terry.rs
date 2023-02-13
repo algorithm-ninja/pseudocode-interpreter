@@ -200,7 +200,10 @@ pub async fn download_statement_file(
     name: &str,
 ) -> Result<String> {
     let task = terry.contest.tasks.iter().find(|x| x.name == task).unwrap();
-    let path = task.statement_path.replace("statement.md", name);
+    let path = format!(
+        "/files{}",
+        task.statement_path.replace("statement.md", name)
+    );
     info!("Downloading {path}");
     Ok(Request::get(&path).send().await?.text().await?)
 }
