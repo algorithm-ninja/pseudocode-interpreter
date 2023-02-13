@@ -1,5 +1,7 @@
+use futures::StreamExt;
 use gloo_storage::{LocalStorage, SessionStorage, Storage};
-use log::info;
+use gloo_timers::future::IntervalStream;
+use log::{info, warn};
 use monaco::api::TextModel;
 use yew::prelude::*;
 use yewprint::Spinner;
@@ -11,7 +13,7 @@ use crate::{
     filemanager::FileManager,
     filestorage,
     io::{Input, Output},
-    terry::{use_terry, TerryData},
+    terry::{self, use_terry, TerryData},
     topbar::Topbar,
 };
 
@@ -99,6 +101,23 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
             },
             current_task.clone(),
         );
+    }
+
+    {
+        let terry = terry.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            let terry = terry.clone();
+            IntervalStream::new(300_000 /* 5 min */)
+                .for_each(|_| {
+                    let terry = terry.clone();
+                    async {
+                        if let Err(e) = terry::refresh_terry(terry).await {
+                            warn!("Refreshing terry failed: {e}");
+                        }
+                    }
+                })
+                .await;
+        });
     }
 
     let global_state = GlobalState {

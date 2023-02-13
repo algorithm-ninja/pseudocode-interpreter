@@ -163,7 +163,7 @@ pub fn use_terry() -> UseStateHandle<Option<TerryData>> {
     terry
 }
 
-async fn refresh_terry(terry: UseStateHandle<TerryData>) -> Result<()> {
+pub async fn refresh_terry(terry: UseStateHandle<TerryData>) -> Result<()> {
     let terry_data = get_contest_info().await?;
     terry.set(terry_data);
     Ok(())
