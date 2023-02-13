@@ -16,6 +16,7 @@ use log::{info, warn};
 pub struct TerryTaskInfo {
     pub name: String,
     pub max_score: f64,
+    pub statement_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -41,6 +42,8 @@ pub struct TerrySubmissionInfo {
     pub score: f64,
     pub id: String,
     pub input: TerryInputInfo,
+    pub source: TerrySourceInfo,
+    pub output: TerryOutputInfo,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -191,6 +194,26 @@ async fn request_new_input(
     Ok(info)
 }
 
+pub async fn download_statement_file(
+    terry: UseStateHandle<TerryData>,
+    task: &str,
+    name: &str,
+) -> Result<String> {
+    let task = terry.contest.tasks.iter().find(|x| x.name == task).unwrap();
+    let path = task.statement_path.replace("statement.md", name);
+    info!("Downloading {path}");
+    Ok(Request::get(&path).send().await?.text().await?)
+}
+
+pub async fn download_file(path: &str) -> Result<String> {
+    info!("Downloading {path}");
+    Ok(Request::get(&format!("/files/{}", path))
+        .send()
+        .await?
+        .text()
+        .await?)
+}
+
 pub async fn download_input(
     terry: UseStateHandle<TerryData>,
     task_name: &str,
@@ -206,12 +229,7 @@ pub async fn download_input(
         None => request_new_input(terry.clone(), task_name).await?,
     };
 
-    let input = Request::get(&format!("/files/{}", input_info.path))
-        .send()
-        .await?
-        .text()
-        .await?;
-
+    let input = download_file(&input_info.path).await?;
     Ok((input, input_info))
 }
 

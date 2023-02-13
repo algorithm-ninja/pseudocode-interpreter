@@ -123,7 +123,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 InsertBehavior::UnderNode(&sub_node),
             )
             .unwrap(),
-            id,
+            info.source.path.clone(),
         );
         submissions_inputs.insert(
             tree.insert(
@@ -135,11 +135,15 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 InsertBehavior::UnderNode(&sub_node),
             )
             .unwrap(),
-            id,
+            info.input.path.clone(),
         );
     }
 
     let current_task = global_state.current_task.clone();
+    let text_model = global_state.text_model.clone();
+    let input_model = global_state.input_model.clone();
+    let terry = global_state.terry.clone();
+
     let onclick = move |(node_id, _)| {
         if node_id == statement_id {
             window()
@@ -147,16 +151,58 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 .unwrap();
         }
         if node_id == template_id {
-            // TODO(veluca): download template
+            if gloo_dialogs::confirm("This will overwrite the current source code. Continue?") {
+                let text_model = text_model.clone();
+                let current_task = current_task.clone();
+                let terry = terry.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let path = format!("{}.srs", &*current_task);
+                    match terry::download_statement_file(terry.clone(), &current_task, &path).await {
+                        Err(e) => warn!("Downloading source failed: {e}"),
+                        Ok(source) if !source.is_empty() => text_model.set_value(&source),
+                        _ => {},
+                    };
+                });
+            }
         }
         if node_id == example_id {
-            // TODO(veluca): download example
+            if gloo_dialogs::confirm("This will overwrite the current input. Continue?") {
+                let current_task = current_task.clone();
+                let input_model = input_model.clone();
+                let terry = terry.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    let path = format!("{}_input_example.txt", &*current_task);
+                    match terry::download_statement_file(terry.clone(), &current_task, &path).await {
+                        Err(e) => warn!("Downloading input failed: {e}"),
+                        Ok(source) if !source.is_empty() => input_model.set_value(&source),
+                        _ => {}
+                    };
+                });
+            }
         }
-        if submissions_sources.get(&node_id).is_some() {
-            // TODO(veluca): download input
+        if let Some(path) = submissions_sources.get(&node_id) {
+            if gloo_dialogs::confirm("This will overwrite the current source code. Continue?") {
+                let path = path.clone();
+                let text_model = text_model.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    match terry::download_file(&path).await {
+                        Err(e) => warn!("Downloading source failed: {e}"),
+                        Ok(source) => text_model.set_value(&source),
+                    };
+                });
+            }
         }
-        if submissions_inputs.get(&node_id).is_some() {
-            // TODO(veluca): download input
+        if let Some(path) = submissions_inputs.get(&node_id) {
+            if gloo_dialogs::confirm("This will overwrite the current input. Continue?") {
+                let path = path.clone();
+                let input_model = input_model.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    match terry::download_file(&path).await {
+                        Err(e) => warn!("Downloading input failed: {e}"),
+                        Ok(source) => input_model.set_value(&source),
+                    };
+                });
+            }
         }
     };
 
