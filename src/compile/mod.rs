@@ -1039,10 +1039,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     LValueStorageLocation::Local(l) => {
                         self.add_operation(
                             move |state, _: ()| {
-                                Ok(RValue::new(
-                                    (state.lvalues.len() - l - 1, var.clone()),
-                                    vec![],
-                                ))
+                                Ok(RValue::new((state.lvalues.len() - l - 1, *var), vec![]))
                             },
                             (),
                             Some(expr),
@@ -1050,7 +1047,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
                     }
                     LValueStorageLocation::Global(l) => {
                         self.add_operation(
-                            move |_, _: ()| Ok(RValue::new((l, var.clone()), vec![])),
+                            move |_, _: ()| Ok(RValue::new((l, *var), vec![])),
                             (),
                             Some(expr),
                         );

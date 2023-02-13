@@ -273,10 +273,9 @@ impl<'a, A: Ast> ProgramState<'a, A> {
 
     fn format_rvalue(&self, rvalue: &RValue) -> String {
         match rvalue {
-            RValue::Tuple(vals) => format!(
-                "({})",
-                vals.into_iter().map(|x| self.format_rvalue(x)).join(",")
-            ),
+            RValue::Tuple(vals) => {
+                format!("({})", vals.iter().map(|x| self.format_rvalue(x)).join(","))
+            }
             RValue::Single(entry) => self.format_rvalue_entry(entry),
         }
     }

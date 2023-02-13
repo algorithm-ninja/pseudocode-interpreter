@@ -81,7 +81,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = use_state(move || SessionStorage::get("current-task").unwrap_or(first_task));
     let text_model = use_state_eq(|| {
-        TextModel::create(&DEFAULT_SOURCE, Some(crate::monaco_srs::ID), None).unwrap()
+        TextModel::create(DEFAULT_SOURCE, Some(crate::monaco_srs::ID), None).unwrap()
     });
     let input_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
     let output_model = use_state_eq(|| TextModel::create("", None, None).unwrap());
@@ -96,7 +96,7 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
                 info!("Switched to task {task}");
                 SessionStorage::set("current-task", task).unwrap();
                 filestorage::set_current_task(task);
-                let source = filestorage::load().unwrap_or(DEFAULT_SOURCE.to_owned());
+                let source = filestorage::load().unwrap_or_else(|| DEFAULT_SOURCE.to_owned());
                 text_model.set_value(&source);
             },
             current_task.clone(),

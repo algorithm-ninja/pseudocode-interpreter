@@ -48,7 +48,7 @@ impl FileStorage {
         let nonce: [u8; 8] = bytes[32..40].try_into().unwrap();
         let mut cipher = Salsa20::new(&key.into(), &nonce.into());
 
-        let mut buffer = hex::decode(&data)?;
+        let mut buffer = hex::decode(data)?;
         cipher.apply_keystream(&mut buffer);
         Ok(String::from_utf8(buffer)?)
     }

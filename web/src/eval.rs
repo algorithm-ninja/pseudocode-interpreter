@@ -18,7 +18,7 @@ use pseudocode_interpreter::{
     ast::Program,
     compile::compile,
     error,
-    eval::{self, ProgramState},
+    eval::ProgramState,
     parse::{self, TextAst},
 };
 use send_wrapper::SendWrapper;
@@ -51,7 +51,7 @@ pub struct Decoration {
 }
 
 impl Decoration {
-    fn to_model_delta_decoration(self) -> Object {
+    fn into_model_delta_decoration(self) -> Object {
         let range = Object::new();
         js_sys::Reflect::set(
             &range,
@@ -157,7 +157,7 @@ impl EvalState {
         callback: impl for<'this> FnOnce(&'outer ProgramState<'this, TextAst>) -> Ret,
     ) -> Ret {
         let cur = *self.borrow_current_step();
-        self.with_states(move |steps| callback(&steps[cur].as_ref().unwrap()))
+        self.with_states(move |steps| callback(steps[cur].as_ref().unwrap()))
     }
 
     fn advance<F>(&mut self, mut count: usize, callback: F) -> Result<(), Error>
@@ -343,12 +343,14 @@ impl Worker for PseudocodeEvaluator {
     }
 }
 
+type DoneCallback = Box<dyn Fn(bool, &str) + 'static>;
+
 pub struct EvalBridge {
     worker: SendWrapper<WorkerBridge<PseudocodeEvaluator>>,
     // TODO(veluca): deal with large outputs.
     output: String,
     output_model: SendWrapper<Option<TextModel>>,
-    on_done: SendWrapper<Option<Box<dyn Fn(bool, &str) + 'static>>>,
+    on_done: SendWrapper<Option<DoneCallback>>,
     text_model: SendWrapper<Option<TextModel>>,
     action: CurrentAction,
     action_state: SendWrapper<Option<UseStateHandle<CurrentAction>>>,
@@ -416,7 +418,7 @@ impl EvalBridge {
         info!("{:?}", decorations);
         let new_decorations: Array = decorations
             .into_iter()
-            .map(Decoration::to_model_delta_decoration)
+            .map(Decoration::into_model_delta_decoration)
             .collect();
         self.current_decorations = SendWrapper::new(
             self.text_model
