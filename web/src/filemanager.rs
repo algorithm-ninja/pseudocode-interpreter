@@ -47,10 +47,15 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
 
     let mut tree = TreeBuilder::new().build();
 
+    // Yewprint's tree will only fire a single callback per element per render.
+    // Our click events don't change the tree state, so we need some artificial
+    // state to force a re-render and allow multiple clicks per element.
+    let yewprint_workaround_state = use_state(|| ());
+
     let root_id = tree
         .insert(
             Node::new(NodeData {
-                data: (),
+                data: *yewprint_workaround_state,
                 ..Default::default()
             }),
             InsertBehavior::AsRoot,
@@ -145,6 +150,9 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
     let terry = global_state.terry.clone();
 
     let onclick = move |(node_id, _)| {
+        // Force a re-render of the tree
+        yewprint_workaround_state.set(());
+
         if node_id == statement_id {
             window()
                 .open_with_url(&format!("/task/{}", *current_task))
