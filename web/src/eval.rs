@@ -163,12 +163,20 @@ impl<'a> EvalHistory<'a> {
         }
         None
     }
-    fn take_current(&mut self, idx: usize) -> Option<ProgramState<'a, TextAst>> {
-        if let Some((i, v)) = self.current_state.take() {
-            assert_eq!(i, idx);
+    fn get_current_mut(&mut self, idx: usize) -> Option<&mut ProgramState<'a, TextAst>> {
+        if let Some((i, v)) = &mut self.current_state {
+            assert_eq!(*i, idx);
             return Some(v);
         }
         None
+    }
+    fn next_state(&mut self) {
+        if let Some((i, v)) = &mut self.current_state {
+            *i += 1;
+            if *i % NUM_STEPS_CACHE == 0 {
+                self.cache.insert(*i, v.clone());
+            }
+        }
     }
     fn set_current(&mut self, idx: usize, state: ProgramState<'a, TextAst>) {
         if idx % NUM_STEPS_CACHE == 0 {
@@ -222,9 +230,10 @@ impl EvalState {
             for _ in 0..count {
                 let cur = *self.borrow_current_step();
                 let done = self.with_history_mut(|history| {
-                    let mut state = history.take_current(cur).unwrap();
+                    let state = history.get_current_mut(cur).unwrap();
                     let done = state.eval_step()?;
-                    history.set_current(cur + 1, state);
+                    history.next_state();
+
                     Ok(done)
                 })?;
                 self.with_current_step_mut(|s| *s += 1);
