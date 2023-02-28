@@ -275,6 +275,7 @@ fn parse_expr_with_precedence(
                     expr = {
                         let be = Box::new(parser_state.clone_current_node(|_| Ok(expr))?);
                         parser_state.require(Token::Period)?;
+                        /*
                         if parser_state.peek_next() == Token::OpenP {
                             // method call
                             let method = parser_state.ident()?;
@@ -282,7 +283,9 @@ fn parse_expr_with_precedence(
                             let (args, _) =
                                 parse_comma_separated(parser_state, Token::ClosedP, parse_expr)?;
                             Expr::MethodCall(be, method, args)
-                        } else if parser_state.peek()?.0 == Token::IntegerLit {
+                        } else
+                        */
+                        if parser_state.peek()?.0 == Token::IntegerLit {
                             let index = parser_state.integer_lit()?;
                             if index < 0 {
                                 // TODO

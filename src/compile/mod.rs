@@ -1146,7 +1146,7 @@ impl<'a, A: Ast> ProgramCompilationState<'a, A> {
 
                 Type::Tuple(types)
             }
-            Expr::NamedTuple(_) => todo!(),
+            // Expr::NamedTuple(_) => todo!(),
             _ => {
                 return Err(Error::NotAssignable(expr.id, expr.info.clone()));
             }
