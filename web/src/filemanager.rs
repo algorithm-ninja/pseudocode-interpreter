@@ -284,8 +284,6 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
         }
     };
 
-    // TODO(veluca): saved files
-
     let tree: TreeData<()> = tree.into();
 
     html! {
