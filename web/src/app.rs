@@ -79,7 +79,15 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let dark_theme = use_state(|| LocalStorage::get("dark-theme").unwrap_or(true));
     let action = use_state(|| CurrentAction::Editing);
     let first_task = terry.contest.tasks[0].name.clone();
-    let current_task = use_state(move || SessionStorage::get("current-task").unwrap_or(first_task));
+    let current_task = {
+        let terry = terry.clone();
+        use_state(move || {
+            match SessionStorage::get("current-task") {
+                Ok(task) if terry.tasks.contains_key(&task) => task,
+                _ => first_task
+            }
+        })
+    };
     let text_model = use_state_eq(|| {
         TextModel::create(DEFAULT_SOURCE, Some(crate::monaco_srs::ID), None).unwrap()
     });
