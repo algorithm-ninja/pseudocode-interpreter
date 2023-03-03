@@ -81,11 +81,9 @@ fn LoadedApp(terry: &LoadedAppProps) -> Html {
     let first_task = terry.contest.tasks[0].name.clone();
     let current_task = {
         let terry = terry.clone();
-        use_state(move || {
-            match SessionStorage::get("current-task") {
-                Ok(task) if terry.tasks.contains_key(&task) => task,
-                _ => first_task
-            }
+        use_state(move || match SessionStorage::get("current-task") {
+            Ok(task) if terry.tasks.contains_key(&task) => task,
+            _ => first_task,
         })
     };
     let text_model = use_state_eq(|| {
