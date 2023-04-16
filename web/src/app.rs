@@ -47,8 +47,6 @@ impl GlobalState {
     {
         let code = self.text_model.get_value();
         let input = self.input_model.get_value();
-        info!("input: {}", &input);
-        info!("code: {}", &code);
         if debugging {
             self.set_action(CurrentAction::Debugging);
         } else {
