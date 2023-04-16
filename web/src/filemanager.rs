@@ -128,7 +128,7 @@ pub fn FileManager(props: &FileManagerProps) -> yew::Html {
                 InsertBehavior::UnderNode(&sub_node),
             )
             .unwrap(),
-            info.source.path.clone(),
+            info.source.path.clone().unwrap(),
         );
         submissions_inputs.insert(
             tree.insert(

@@ -27,14 +27,14 @@ pub struct TerryInputInfo {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerryOutputInfo {
-    pub id: String,
-    pub path: String,
+    pub id: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct TerrySourceInfo {
-    pub id: String,
-    pub path: String,
+    pub id: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -124,13 +124,22 @@ async fn get_contest_info() -> Result<TerryData> {
         // TODO(veluca): consider avoiding too many requests here.
 
         reqs.push(async {
-            task_info.submissions =
+            let mut subs =
                 Request::get(&format!("/api/user/{user}/submissions/{}", task_info.name))
                     .send()
                     .await?
                     .json::<TerrySubmissionList>()
                     .await?
                     .items;
+
+            subs.retain(|x| {
+                x.source.id.is_some()
+                    && x.source.path.is_some()
+                    && x.output.id.is_some()
+                    && x.output.path.is_some()
+            });
+
+            task_info.submissions = subs;
             Ok::<(), Error>(())
         });
     }
@@ -296,8 +305,10 @@ pub async fn submit(
 
     let data = FormData::new().unwrap();
     data.append_with_str("input_id", input_id).unwrap();
-    data.append_with_str("source_id", &source_info.id).unwrap();
-    data.append_with_str("output_id", &output_info.id).unwrap();
+    data.append_with_str("source_id", &source_info.id.unwrap())
+        .unwrap();
+    data.append_with_str("output_id", &output_info.id.unwrap())
+        .unwrap();
 
     let info = Request::post("/api/submit")
         .body(data)
