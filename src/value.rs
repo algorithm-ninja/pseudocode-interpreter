@@ -6,7 +6,7 @@ use ordered_float::NotNan;
 
 use crate::ast::{Ast, Type, VarIndex};
 
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 pub enum LValue {
     Integer(i64),
     Float(NotNan<f64>),
@@ -19,6 +19,7 @@ pub enum LValue {
     NamedTuple(Vector<LValue>),
     // Represents no value. It is either an uninitialized stack entry, or the return value of a
     // top-level function.
+    #[default]
     Void,
 }
 
@@ -47,12 +48,6 @@ impl LValue {
             ),
             _ => unreachable!("Invalid type"),
         }
-    }
-}
-
-impl Default for LValue {
-    fn default() -> Self {
-        LValue::Void
     }
 }
 
